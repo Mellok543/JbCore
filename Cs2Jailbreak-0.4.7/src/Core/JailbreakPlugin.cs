@@ -94,6 +94,19 @@ public sealed class JailbreakPlugin : BasePlugin, IPluginConfig<JailbreakConfig>
         _markerTimer = AddTimer(Config.MarkerTickSeconds, WardenMarkerTick, CSTimer.TimerFlags.REPEAT | CSTimer.TimerFlags.STOP_ON_MAPCHANGE);
     }
 
+    public void OnConfigParsed(JailbreakConfig config)
+    {
+        Config = config;
+
+        if (_markerTimer != null)
+        {
+            _markerTimer.Kill();
+            _markerTimer = null;
+        }
+
+        _markerTimer = AddTimer(Config.MarkerTickSeconds, WardenMarkerTick, CSTimer.TimerFlags.REPEAT | CSTimer.TimerFlags.STOP_ON_MAPCHANGE);
+    }
+
     public override void Unload(bool hotReload)
     {
         if (!PlayerExtensions.IsWindows())
