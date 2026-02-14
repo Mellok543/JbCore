@@ -172,7 +172,7 @@ sealed class BotApp
                     var canComplete = _closerIds.Contains(userId);
                     var mainMenu = Keyboards.MainMenu(canComplete, canManageAccess, true);
 
-                    if (text == "Отменить заявку")
+                    if (text is "Отменить заявку" or "Назад")
                     {
                         if (_sessions.Remove(userId))
                         {
@@ -807,7 +807,7 @@ sealed class BotApp
             or "Управление доступом" or "Добавить пользователя" or "Удалить пользователя" or "Список пользователей" or "Рекомендации" or "Рекомендовать пользователя"
             or "Выдать доступ" or "Забрать доступ" or "Выдать завершение" or "Забрать завершение" or "Выдать управление" or "Забрать управление"
             or "Вкл увед. заявок" or "Выкл увед. заявок" or "Вкл увед. рек." or "Выкл увед. рек."
-            or "Принять #" or "Отклонить #";
+            or "Принять #" or "Отклонить #" or "Назад";
     }
 
     private static string BuildReporter(User user)
@@ -1175,7 +1175,7 @@ static class Keyboards
     public static object NoAccess => Keyboard([["/start"]]);
     public static object CategoryMenu => Keyboard([["Заявки на дроны"], ["Заявки на ремонт"], ["Заявки на комлектующие"]]);
     public static object RequestMode => Keyboard([["Обычная заявка", "Ремонт"], ["Комплектующие и расходники"]]);
-    public static object AccessManageMenu => Keyboard([["Добавить пользователя", "Удалить пользователя"], ["Выдать доступ", "Забрать доступ"], ["Выдать завершение", "Забрать завершение"], ["Выдать управление", "Забрать управление"], ["Вкл увед. заявок", "Выкл увед. заявок"], ["Вкл увед. рек.", "Выкл увед. рек."], ["Список пользователей", "Рекомендации"], ["Отменить заявку"]]);
+    public static object AccessManageMenu => Keyboard([["Добавить пользователя", "Удалить пользователя"], ["Выдать доступ", "Забрать доступ"], ["Выдать завершение", "Забрать завершение"], ["Выдать управление", "Забрать управление"], ["Вкл увед. заявок", "Выкл увед. заявок"], ["Вкл увед. рек.", "Выкл увед. рек."], ["Список пользователей", "Рекомендации"], ["Назад"]]);
     public static object PilotType => Keyboard([["КТ", "Оптика", "СТ"]]);
     public static object CancelOnly => Keyboard([["Отменить заявку"]]);
     public static object VideoFrequency => Keyboard([["5.8", "3.4", "3.3"], ["1.5", "1.2"]]);
@@ -1235,7 +1235,7 @@ static class Keyboards
             .Select(chunk => chunk.ToArray())
             .ToList();
 
-        rows.Add(new[] { "Отменить заявку" });
+        rows.Add(new[] { "Назад" });
         return Keyboard(rows.ToArray());
     }
 
@@ -1247,7 +1247,7 @@ static class Keyboards
             .Select(chunk => chunk.ToArray())
             .ToList();
 
-        rows.Add(new[] { "Отменить заявку" });
+        rows.Add(new[] { "Назад" });
         return Keyboard(rows.ToArray());
     }
 
@@ -2373,7 +2373,7 @@ sealed class AccessStore
                 recommendationSheetNew.Range(1, 1, 1, RecommendationHeaders.Length).Style.Font.Bold = true;
                 recommendationSheetNew.Columns().AdjustToContents();
 
-                var usernameAccessSheet = wb.Worksheets.Add(UsernameAccessSheetName);
+                var usernameAccessSheetNew = wb.Worksheets.Add(UsernameAccessSheetName);
                 for (var i = 0; i < UsernameAccessHeaders.Length; i++)
                 {
                     usernameAccessSheet.Cell(1, i + 1).Value = UsernameAccessHeaders[i];
