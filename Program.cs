@@ -97,15 +97,24 @@ sealed class BotApp
 
                     if (text == "Активные заявки")
                     {
-                        var active = _store.GetApplications(ApplicationStore.StatusActive);
-                        if (active.Count == 0)
+                        var activeApplications = _store.GetApplications(ApplicationStore.StatusActive);
+                        var activeRepairs = _repairStore.GetRepairs(RepairStore.StatusInProgress);
+                        var total = activeApplications.Count + activeRepairs.Count;
+
+                        if (total == 0)
                         {
                             await SendMessageAsync(chatId, "Активных заявок пока нет.", Keyboards.MainMenu);
                         }
                         else
                         {
-                            await SendMessageAsync(chatId, $"Активные заявки: {active.Count}", Keyboards.MainMenu);
-                            foreach (var item in active)
+                            await SendMessageAsync(chatId, $"Активные заявки: {total}", Keyboards.MainMenu);
+
+                            foreach (var item in activeApplications)
+                            {
+                                await SendMessageAsync(chatId, item.FormatCard(), Keyboards.MainMenu);
+                            }
+
+                            foreach (var item in activeRepairs)
                             {
                                 await SendMessageAsync(chatId, item.FormatCard(), Keyboards.MainMenu);
                             }
@@ -116,15 +125,24 @@ sealed class BotApp
 
                     if (text == "Завершенные заявки")
                     {
-                        var completed = _store.GetApplications(ApplicationStore.StatusCompleted);
-                        if (completed.Count == 0)
+                        var completedApplications = _store.GetApplications(ApplicationStore.StatusCompleted);
+                        var completedRepairs = _repairStore.GetRepairs(RepairStore.StatusCompleted);
+                        var total = completedApplications.Count + completedRepairs.Count;
+
+                        if (total == 0)
                         {
                             await SendMessageAsync(chatId, "Завершённых заявок пока нет.", Keyboards.MainMenu);
                         }
                         else
                         {
-                            await SendMessageAsync(chatId, $"Завершённые заявки: {completed.Count}", Keyboards.MainMenu);
-                            foreach (var item in completed)
+                            await SendMessageAsync(chatId, $"Завершённые заявки: {total}", Keyboards.MainMenu);
+
+                            foreach (var item in completedApplications)
+                            {
+                                await SendMessageAsync(chatId, item.FormatCard(), Keyboards.MainMenu);
+                            }
+
+                            foreach (var item in completedRepairs)
                             {
                                 await SendMessageAsync(chatId, item.FormatCard(), Keyboards.MainMenu);
                             }
@@ -757,6 +775,9 @@ sealed class ApplicationStore
 
 sealed class RepairStore
 {
+    public const string StatusInProgress = "В работе";
+    public const string StatusCompleted = "Завершено";
+
     private readonly string _excelPath;
     private readonly object _sync = new();
 
@@ -798,7 +819,7 @@ sealed class RepairStore
             ws.Cell(row, 6).Value = payload["repair_fault"];
             ws.Cell(row, 7).Value = payload["repair_quantity"];
             ws.Cell(row, 8).Value = payload.GetValueOrDefault("repair_note", "-");
-            ws.Cell(row, 9).Value = "В работе";
+            ws.Cell(row, 9).Value = StatusInProgress;
 
             workbook.SaveAs(_excelPath);
             return nextId;
@@ -825,6 +846,33 @@ sealed class RepairStore
         }
     }
 
+    public List<RepairItem> GetRepairs(string status)
+    {
+        lock (_sync)
+        {
+            using var workbook = OpenWorkbook();
+            var ws = workbook.Worksheet(SheetName);
+            var result = new List<RepairItem>();
+
+            var lastRow = ws.LastRowUsed()?.RowNumber() ?? 1;
+            for (var r = 2; r <= lastRow; r++)
+            {
+                if (ws.Cell(r, 1).IsEmpty())
+                {
+                    continue;
+                }
+
+                var repair = ReadRepair(ws, r);
+                if (repair.Status == status)
+                {
+                    result.Add(repair);
+                }
+            }
+
+            return result.OrderByDescending(r => r.Id).ToList();
+        }
+    }
+
     public bool CompleteRepair(long repairId)
     {
         lock (_sync)
@@ -841,12 +889,12 @@ sealed class RepairStore
                 }
 
                 var status = ws.Cell(r, 9).GetString();
-                if (status != "В работе")
+                if (status != StatusInProgress)
                 {
                     return false;
                 }
 
-                ws.Cell(r, 9).Value = "Завершено";
+                ws.Cell(r, 9).Value = StatusCompleted;
                 workbook.SaveAs(_excelPath);
                 return true;
             }
