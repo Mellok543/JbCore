@@ -822,18 +822,18 @@ static class Keyboards
     {
         var rows = new List<string[]>
         {
-            ["Активные заявки", "Завершенные заявки"],
-            ["Оставить заявку"]
+            new[] { "Активные заявки", "Завершенные заявки" },
+            new[] { "Оставить заявку" }
         };
 
         if (canComplete)
         {
-            rows.Add(["Завершить заявку"]);
+            rows.Add(new[] { "Завершить заявку" });
         }
 
         if (canManageAccess)
         {
-            rows.Add(["Управление доступом"]);
+            rows.Add(new[] { "Управление доступом" });
         }
 
         return Keyboard(rows.ToArray());
@@ -897,7 +897,7 @@ static class Keyboards
             .Select(chunk => chunk.ToArray())
             .ToList();
 
-        rows.Add(["Отменить заявку"]);
+        rows.Add(new[] { "Отменить заявку" });
         return Keyboard(rows.ToArray());
     }
 
