@@ -89,15 +89,17 @@ sealed class BotApp
                     var userId = message.From.Id;
                     var reporter = BuildReporter(message.From);
 
+                    var mainMenu = Keyboards.MainMenu(_closerIds.Contains(userId));
+
                     if (text == "Отменить заявку")
                     {
                         if (_sessions.Remove(userId))
                         {
-                            await SendMessageAsync(chatId, "Заявка отменена.", Keyboards.MainMenu);
+                            await SendMessageAsync(chatId, "Заявка отменена.", mainMenu);
                         }
                         else
                         {
-                            await SendMessageAsync(chatId, "Нет активной заявки для отмены.", Keyboards.MainMenu);
+                            await SendMessageAsync(chatId, "Нет активной заявки для отмены.", mainMenu);
                         }
 
                         continue;
@@ -113,10 +115,21 @@ sealed class BotApp
                         continue;
                     }
 
+                    if (_sessions.TryGetValue(userId, out var menuSession) &&
+                        await TryHandleMenuSessionAsync(menuSession, text, chatId, mainMenu))
+                    {
+                        if (menuSession.Step == "done")
+                        {
+                            _sessions.Remove(userId);
+                        }
+
+                        continue;
+                    }
+
                     if (text is "/start" or "Меню")
                     {
                         _sessions.Remove(userId);
-                        await SendMessageAsync(chatId, "Выберите действие:", Keyboards.MainMenu);
+                        await SendMessageAsync(chatId, "Выберите действие:", mainMenu);
                         continue;
                     }
 
@@ -129,111 +142,34 @@ sealed class BotApp
 
                     if (text == "Активные заявки")
                     {
-                        var activeApplications = _store.GetApplications(ApplicationStore.StatusActive);
-                        var activeRepairs = _repairStore.GetRepairs(RepairStore.StatusInProgress);
-                        var total = activeApplications.Count + activeRepairs.Count;
-
-                        if (total == 0)
-                        {
-                            await SendMessageAsync(chatId, "Активных заявок пока нет.", Keyboards.MainMenu);
-                        }
-                        else
-                        {
-                            await SendMessageAsync(chatId, $"Активные заявки (всего): {total}", Keyboards.MainMenu);
-
-                            await SendMessageAsync(chatId, $"🛩 Заявки на дроны: {activeApplications.Count}", Keyboards.MainMenu);
-                            foreach (var item in activeApplications)
-                            {
-                                await SendMessageAsync(chatId, item.FormatCard(), Keyboards.MainMenu);
-                            }
-
-                            await SendMessageAsync(chatId, $"🛠 Ремонт: {activeRepairs.Count}", Keyboards.MainMenu);
-                            foreach (var item in activeRepairs)
-                            {
-                                await SendMessageAsync(chatId, item.FormatCard(), Keyboards.MainMenu);
-                            }
-                        }
-
+                        _sessions[userId] = new SessionState("view_active_category");
+                        await SendMessageAsync(chatId, "Выберите категорию:", Keyboards.CategoryMenu);
                         continue;
                     }
 
                     if (text == "Завершенные заявки")
                     {
-                        var completedApplications = _store.GetApplications(ApplicationStore.StatusCompleted);
-                        var completedRepairs = _repairStore.GetRepairs(RepairStore.StatusCompleted);
-                        var total = completedApplications.Count + completedRepairs.Count;
-
-                        if (total == 0)
-                        {
-                            await SendMessageAsync(chatId, "Завершённых заявок пока нет.", Keyboards.MainMenu);
-                        }
-                        else
-                        {
-                            await SendMessageAsync(chatId, $"Завершённые заявки (всего): {total}", Keyboards.MainMenu);
-
-                            await SendMessageAsync(chatId, $"🛩 Заявки на дроны: {completedApplications.Count}", Keyboards.MainMenu);
-                            foreach (var item in completedApplications)
-                            {
-                                await SendMessageAsync(chatId, item.FormatCard(), Keyboards.MainMenu);
-                            }
-
-                            await SendMessageAsync(chatId, $"🛠 Ремонт: {completedRepairs.Count}", Keyboards.MainMenu);
-                            foreach (var item in completedRepairs)
-                            {
-                                await SendMessageAsync(chatId, item.FormatCard(), Keyboards.MainMenu);
-                            }
-                        }
-
+                        _sessions[userId] = new SessionState("view_completed_category");
+                        await SendMessageAsync(chatId, "Выберите категорию:", Keyboards.CategoryMenu);
                         continue;
                     }
 
-                    if (text.Equals("/complete", StringComparison.OrdinalIgnoreCase) || text.StartsWith("/complete ", StringComparison.OrdinalIgnoreCase))
+                    if (text == "Завершить заявку")
                     {
                         if (!_closerIds.Contains(userId))
                         {
-                            await SendMessageAsync(chatId, "У вас нет прав завершать заявки.", Keyboards.MainMenu);
+                            await SendMessageAsync(chatId, "У вас нет прав завершать заявки.", mainMenu);
                             continue;
                         }
 
-                        var parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                        if (parts.Length != 2 || !long.TryParse(parts[1], out var appId))
-                        {
-                            await SendMessageAsync(chatId, "Использование: /complete <id>", Keyboards.MainMenu);
-                            continue;
-                        }
-
-                        var completed = _store.CompleteApplication(appId);
-                        await SendMessageAsync(chatId,
-                            completed ? $"Заявка #{appId} завершена." : $"Активная заявка #{appId} не найдена.",
-                            Keyboards.MainMenu);
-                        continue;
-                    }
-
-                    if (text.StartsWith("/complete_repair", StringComparison.OrdinalIgnoreCase))
-                    {
-                        if (!_closerIds.Contains(userId))
-                        {
-                            await SendMessageAsync(chatId, "У вас нет прав завершать ремонты.", Keyboards.MainMenu);
-                            continue;
-                        }
-
-                        var parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                        if (parts.Length != 2 || !long.TryParse(parts[1], out var repairId))
-                        {
-                            await SendMessageAsync(chatId, "Использование: /complete_repair <id>", Keyboards.MainMenu);
-                            continue;
-                        }
-
-                        var completed = _repairStore.CompleteRepair(repairId);
-                        await SendMessageAsync(chatId,
-                            completed ? $"Ремонт #{repairId} завершён." : $"Заявка на ремонт #{repairId} не найдена или уже завершена.",
-                            Keyboards.MainMenu);
+                        _sessions[userId] = new SessionState("complete_category");
+                        await SendMessageAsync(chatId, "Выберите категорию для завершения:", Keyboards.CategoryMenu);
                         continue;
                     }
 
                     if (!_sessions.TryGetValue(userId, out var session))
                     {
-                        await SendMessageAsync(chatId, "Не понял команду. Нажмите /start", Keyboards.MainMenu);
+                        await SendMessageAsync(chatId, "Не понял команду. Нажмите /start", mainMenu);
                         continue;
                     }
 
@@ -245,19 +181,19 @@ sealed class BotApp
                         {
                             var repairId = _repairStore.AddRepair(reporter, session.Data);
                             var repair = _repairStore.GetById(repairId);
-                            await SendMessageAsync(chatId, $"Заявка на ремонт создана!\n\n{repair.FormatCard()}", Keyboards.MainMenu);
+                            await SendMessageAsync(chatId, $"Заявка на ремонт создана!\n\n{repair.FormatCard()}", mainMenu);
                         }
                         else if (session.IsConsumablesRequest)
                         {
                             var consumablesId = _consumablesStore.AddRequest(reporter, session.Data);
                             var consumables = _consumablesStore.GetById(consumablesId);
-                            await SendMessageAsync(chatId, $"Заявка на комплектующие создана!\n\n{consumables.FormatCard()}", Keyboards.MainMenu);
+                            await SendMessageAsync(chatId, $"Заявка на комплектующие создана!\n\n{consumables.FormatCard()}", mainMenu);
                         }
                         else
                         {
                             var appId = _store.AddApplication(reporter, session.Data);
                             var appModel = _store.GetById(appId);
-                            await SendMessageAsync(chatId, $"Заявка создана!\n\n{appModel.FormatCard()}", Keyboards.MainMenu);
+                            await SendMessageAsync(chatId, $"Заявка создана!\n\n{appModel.FormatCard()}", mainMenu);
                         }
                     }
                     else
@@ -274,9 +210,173 @@ sealed class BotApp
         }
     }
 
+    private async Task<bool> TryHandleMenuSessionAsync(SessionState session, string text, long chatId, object mainMenu)
+    {
+        if (session.Step is "view_active_category" or "view_completed_category")
+        {
+            var isActive = session.Step == "view_active_category";
+            var category = NormalizeCategory(text);
+            if (category is null)
+            {
+                await SendMessageAsync(chatId, "Выберите категорию кнопкой.", Keyboards.CategoryMenu);
+                return true;
+            }
+
+            if (category == "drones")
+            {
+                var status = isActive ? ApplicationStore.StatusActive : ApplicationStore.StatusCompleted;
+                var items = _store.GetApplications(status);
+                await SendCategoryItemsAsync(chatId, isActive ? "Активные" : "Завершённые", "Заявки на дроны", items.Select(i => i.FormatCard()).ToList(), mainMenu);
+            }
+            else if (category == "repair")
+            {
+                var status = isActive ? RepairStore.StatusInProgress : RepairStore.StatusCompleted;
+                var items = _repairStore.GetRepairs(status);
+                await SendCategoryItemsAsync(chatId, isActive ? "Активные" : "Завершённые", "Заявки на ремонт", items.Select(i => i.FormatCard()).ToList(), mainMenu);
+            }
+            else
+            {
+                var status = isActive ? ConsumablesStore.StatusInProgress : ConsumablesStore.StatusCompleted;
+                var items = _consumablesStore.GetRequests(status);
+                await SendCategoryItemsAsync(chatId, isActive ? "Активные" : "Завершённые", "Заявки на комплектующие", items.Select(i => i.FormatCard()).ToList(), mainMenu);
+            }
+
+            session.SetStep("done");
+            return true;
+        }
+
+        if (session.Step == "complete_category")
+        {
+            var category = NormalizeCategory(text);
+            if (category is null)
+            {
+                await SendMessageAsync(chatId, "Выберите категорию кнопкой.", Keyboards.CategoryMenu);
+                return true;
+            }
+
+            if (category == "drones")
+            {
+                var items = _store.GetApplications(ApplicationStore.StatusActive);
+                var ids = items.Select(x => x.Id).ToList();
+                if (ids.Count == 0)
+                {
+                    await SendMessageAsync(chatId, "Активных заявок на дроны нет.", mainMenu);
+                    session.SetStep("done");
+                    return true;
+                }
+
+                await SendMessageAsync(chatId, $"Активные заявки на дроны: {ids.Count}", mainMenu);
+                foreach (var item in items)
+                {
+                    await SendMessageAsync(chatId, item.FormatCard(), mainMenu);
+                }
+
+                session.SetStep("complete_select_drones");
+                await SendMessageAsync(chatId, "Выберите заявку для завершения:", Keyboards.CompleteList(ids));
+                return true;
+            }
+
+            if (category == "repair")
+            {
+                var items = _repairStore.GetRepairs(RepairStore.StatusInProgress);
+                var ids = items.Select(x => x.Id).ToList();
+                if (ids.Count == 0)
+                {
+                    await SendMessageAsync(chatId, "Активных заявок на ремонт нет.", mainMenu);
+                    session.SetStep("done");
+                    return true;
+                }
+
+                await SendMessageAsync(chatId, $"Активные заявки на ремонт: {ids.Count}", mainMenu);
+                foreach (var item in items)
+                {
+                    await SendMessageAsync(chatId, item.FormatCard(), mainMenu);
+                }
+
+                session.SetStep("complete_select_repair");
+                await SendMessageAsync(chatId, "Выберите заявку для завершения:", Keyboards.CompleteList(ids));
+                return true;
+            }
+
+            var consumableItems = _consumablesStore.GetRequests(ConsumablesStore.StatusInProgress);
+            var consumableIds = consumableItems.Select(x => x.Id).ToList();
+            if (consumableIds.Count == 0)
+            {
+                await SendMessageAsync(chatId, "Активных заявок на комплектующие нет.", mainMenu);
+                session.SetStep("done");
+                return true;
+            }
+
+            await SendMessageAsync(chatId, $"Активные заявки на комплектующие: {consumableIds.Count}", mainMenu);
+            foreach (var item in consumableItems)
+            {
+                await SendMessageAsync(chatId, item.FormatCard(), mainMenu);
+            }
+
+            session.SetStep("complete_select_consumables");
+            await SendMessageAsync(chatId, "Выберите заявку для завершения:", Keyboards.CompleteList(consumableIds));
+            return true;
+        }
+
+        if (session.Step is "complete_select_drones" or "complete_select_repair" or "complete_select_consumables")
+        {
+            var id = ParseCompleteButton(text);
+            if (id is null)
+            {
+                await SendMessageAsync(chatId, "Выберите заявку кнопкой вида «Завершить #ID».", Keyboards.ForStep(session.Step));
+                return true;
+            }
+
+            var ok = session.Step switch
+            {
+                "complete_select_drones" => _store.CompleteApplication(id.Value),
+                "complete_select_repair" => _repairStore.CompleteRepair(id.Value),
+                _ => _consumablesStore.CompleteRequest(id.Value)
+            };
+
+            await SendMessageAsync(chatId, ok ? $"Заявка #{id.Value} завершена." : $"Заявка #{id.Value} не найдена или уже завершена.", mainMenu);
+            session.SetStep("done");
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string? NormalizeCategory(string text) => text switch
+    {
+        "Заявки на дроны" => "drones",
+        "Заявки на ремонт" => "repair",
+        "Заявки на комлектующие" => "consumables",
+        "Заявки на комплектующие" => "consumables",
+        _ => null
+    };
+
+    private static long? ParseCompleteButton(string text)
+    {
+        if (!text.StartsWith("Завершить #", StringComparison.OrdinalIgnoreCase)) return null;
+        var raw = text[11..].Trim();
+        return long.TryParse(raw, out var id) ? id : null;
+    }
+
+    private async Task SendCategoryItemsAsync(long chatId, string section, string categoryName, List<string> cards, object mainMenu)
+    {
+        if (cards.Count == 0)
+        {
+            await SendMessageAsync(chatId, $"{section} {categoryName.ToLower()}: 0", mainMenu);
+            return;
+        }
+
+        await SendMessageAsync(chatId, $"{section} {categoryName}: {cards.Count}", mainMenu);
+        foreach (var card in cards)
+        {
+            await SendMessageAsync(chatId, card, mainMenu);
+        }
+    }
+
     private static bool IsMenuCommand(string text)
     {
-        return text is "/start" or "Меню" or "Оставить заявку" or "Активные заявки" or "Завершенные заявки";
+        return text is "/start" or "Меню" or "Оставить заявку" or "Активные заявки" or "Завершенные заявки"
+            or "Завершить заявку" or "Заявки на дроны" or "Заявки на ремонт" or "Заявки на комлектующие" or "Заявки на комплектующие";
     }
 
     private static string BuildReporter(User user)
@@ -344,6 +444,8 @@ sealed class SessionState(string step)
     public Dictionary<string, string> Data { get; } = new();
     public bool IsRepairRequest => Data.GetValueOrDefault("request_type") == "repair" || Step.StartsWith("repair_", StringComparison.Ordinal);
     public bool IsConsumablesRequest => Data.GetValueOrDefault("request_type") == "consumables" || Step.StartsWith("consumables_", StringComparison.Ordinal);
+
+    public void SetStep(string stepValue) => Step = stepValue;
 
     public string? Handle(string text)
     {
@@ -571,7 +673,10 @@ sealed class SessionState(string step)
 
 static class Keyboards
 {
-    public static object MainMenu => Keyboard([["Активные заявки", "Завершенные заявки"], ["Оставить заявку"]]);
+    public static object MainMenu(bool canComplete) => canComplete
+        ? Keyboard([["Активные заявки", "Завершенные заявки"], ["Оставить заявку"], ["Завершить заявку"]])
+        : Keyboard([["Активные заявки", "Завершенные заявки"], ["Оставить заявку"]]);
+    public static object CategoryMenu => Keyboard([["Заявки на дроны"], ["Заявки на ремонт"], ["Заявки на комлектующие"]]);
     public static object RequestMode => Keyboard([["Обычная заявка", "Ремонт"], ["Комплектующие и расходники"]]);
     public static object PilotType => Keyboard([["КТ", "Оптика", "СТ"]]);
     public static object CancelOnly => Keyboard([["Отменить заявку"]]);
@@ -591,13 +696,13 @@ static class Keyboards
         "callsign" or "pilot_number" or "rx_firmware" or "regularity_domain" or "bind_phrase" or "quantity"
             or "repair_equipment" or "repair_fault" or "repair_quantity" or "repair_note"
             or "consumables_needed" or "consumables_quantity" or "consumables_note" => CancelOnly,
-        _ => MainMenu
+        _ => MainMenu(false)
     };
 
     private static object DroneType(SessionState? session)
     {
         var options = session?.DroneOptions() ?? [];
-        if (options.Length == 0) return MainMenu;
+        if (options.Length == 0) return MainMenu(false);
 
         var rows = options
             .Chunk(2)
@@ -610,9 +715,21 @@ static class Keyboards
     private static object CoilKmByDrone(SessionState? session)
     {
         var options = session?.CoilOptions() ?? [];
-        if (options.Length == 0) return MainMenu;
+        if (options.Length == 0) return MainMenu(false);
 
         return Keyboard([options]);
+    }
+
+    public static object CompleteList(IEnumerable<long> ids)
+    {
+        var rows = ids
+            .Select(id => $"Завершить #{id}")
+            .Chunk(2)
+            .Select(chunk => chunk.ToArray())
+            .ToList();
+
+        rows.Add(["Отменить заявку"]);
+        return Keyboard(rows.ToArray());
     }
 
     private static object Keyboard(string[][] rows)
@@ -1054,6 +1171,9 @@ sealed class RepairStore
 
 sealed class ConsumablesStore
 {
+    public const string StatusInProgress = "В работе";
+    public const string StatusCompleted = "Завершено";
+
     private readonly string _excelPath;
     private readonly object _sync = new();
 
@@ -1065,7 +1185,8 @@ sealed class ConsumablesStore
         "Запросил",
         "Необходимо",
         "Количество",
-        "Примечание"
+        "Примечание",
+        "Статус"
     ];
 
     public ConsumablesStore(string excelPath)
@@ -1090,6 +1211,7 @@ sealed class ConsumablesStore
             ws.Cell(row, 4).Value = payload["consumables_needed"];
             ws.Cell(row, 5).Value = payload["consumables_quantity"];
             ws.Cell(row, 6).Value = payload.GetValueOrDefault("consumables_note", "-");
+            ws.Cell(row, 7).Value = StatusInProgress;
 
             workbook.SaveAs(_excelPath);
             return nextId;
@@ -1113,6 +1235,63 @@ sealed class ConsumablesStore
             }
 
             throw new InvalidOperationException($"Заявка на комплектующие {id} не найдена");
+        }
+    }
+
+    public List<ConsumablesItem> GetRequests(string status)
+    {
+        lock (_sync)
+        {
+            using var workbook = OpenWorkbook();
+            var ws = workbook.Worksheet(SheetName);
+            var result = new List<ConsumablesItem>();
+            var lastRow = ws.LastRowUsed()?.RowNumber() ?? 1;
+
+            for (var r = 2; r <= lastRow; r++)
+            {
+                if (ws.Cell(r, 1).IsEmpty())
+                {
+                    continue;
+                }
+
+                var item = ReadItem(ws, r);
+                if (item.Status == status)
+                {
+                    result.Add(item);
+                }
+            }
+
+            return result.OrderByDescending(x => x.Id).ToList();
+        }
+    }
+
+    public bool CompleteRequest(long id)
+    {
+        lock (_sync)
+        {
+            using var workbook = OpenWorkbook();
+            var ws = workbook.Worksheet(SheetName);
+            var lastRow = ws.LastRowUsed()?.RowNumber() ?? 1;
+
+            for (var r = 2; r <= lastRow; r++)
+            {
+                if (!long.TryParse(ws.Cell(r, 1).GetString(), out var currentId) || currentId != id)
+                {
+                    continue;
+                }
+
+                var status = ws.Cell(r, 7).GetString();
+                if (status != StatusInProgress)
+                {
+                    return false;
+                }
+
+                ws.Cell(r, 7).Value = StatusCompleted;
+                workbook.SaveAs(_excelPath);
+                return true;
+            }
+
+            return false;
         }
     }
 
@@ -1177,7 +1356,8 @@ sealed class ConsumablesStore
             RequestedBy: ws.Cell(row, 3).GetString(),
             Needed: ws.Cell(row, 4).GetString(),
             Quantity: ws.Cell(row, 5).GetString(),
-            Note: ws.Cell(row, 6).GetString());
+            Note: ws.Cell(row, 6).GetString(),
+            Status: ws.Cell(row, 7).GetString());
     }
 }
 
@@ -1270,7 +1450,8 @@ record ConsumablesItem(
     string RequestedBy,
     string Needed,
     string Quantity,
-    string Note)
+    string Note,
+    string Status)
 {
     public string FormatCard()
     {
@@ -1281,6 +1462,7 @@ record ConsumablesItem(
         sb.AppendLine($"Необходимо: {Needed}");
         sb.AppendLine($"Количество: {Quantity}");
         sb.AppendLine($"Примечание: {Note}");
+        sb.AppendLine($"Статус: {Status}");
         return sb.ToString().TrimEnd();
     }
 }
