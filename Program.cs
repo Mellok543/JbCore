@@ -2376,11 +2376,11 @@ sealed class AccessStore
                 var usernameAccessSheetNew = wb.Worksheets.Add(UsernameAccessSheetName);
                 for (var i = 0; i < UsernameAccessHeaders.Length; i++)
                 {
-                    usernameAccessSheet.Cell(1, i + 1).Value = UsernameAccessHeaders[i];
+                    usernameAccessSheetNew.Cell(1, i + 1).Value = UsernameAccessHeaders[i];
                 }
 
-                usernameAccessSheet.Range(1, 1, 1, UsernameAccessHeaders.Length).Style.Font.Bold = true;
-                usernameAccessSheet.Columns().AdjustToContents();
+                usernameAccessSheetNew.Range(1, 1, 1, UsernameAccessHeaders.Length).Style.Font.Bold = true;
+                usernameAccessSheetNew.Columns().AdjustToContents();
                 wb.SaveAs(_excelPath);
                 return;
             }
