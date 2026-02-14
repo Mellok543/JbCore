@@ -424,6 +424,7 @@ sealed class BotApp
 sealed class SessionState(string step)
 {
     private static readonly string[] RepairUnits = ["КТ", "СТ", "Оптика", "Мавики"];
+    private static readonly string[] ConsumablesUnits = ["КТ", "СТ", "Мавики"];
 
     private static readonly Dictionary<string, string[]> DroneTypesByPilotType = new()
     {
@@ -469,8 +470,8 @@ sealed class SessionState(string step)
                 if (text == "Комплектующие и расходники")
                 {
                     Data["request_type"] = "consumables";
-                    Step = "consumables_needed";
-                    return "Необходимо: (Ручной ввод)";
+                    Step = "consumables_unit";
+                    return "Подразделение:";
                 }
 
                 return "Выберите тип заявки кнопкой: Обычная заявка / Ремонт / Комплектующие и расходники";
@@ -618,6 +619,12 @@ sealed class SessionState(string step)
                 Step = "done";
                 return null;
 
+            case "consumables_unit":
+                if (!ConsumablesUnits.Contains(text)) return "Выберите подразделение кнопкой: КТ / СТ / Мавики";
+                Data["consumables_unit"] = text;
+                Step = "consumables_needed";
+                return "Необходимо: (Ручной ввод)";
+
             case "consumables_needed":
                 if (string.IsNullOrWhiteSpace(text)) return "Введите, что необходимо:";
                 Data["consumables_needed"] = text.Trim();
@@ -683,6 +690,7 @@ static class Keyboards
     public static object VideoFrequency => Keyboard([["5.8", "3.4", "3.3"], ["1.5", "1.2"]]);
     public static object ControlFrequency => Keyboard([["2.4", "900", "700"], ["500", "300 кузнец"]]);
     public static object RepairUnit => Keyboard([["КТ", "СТ"], ["Оптика", "Мавики"]]);
+    public static object ConsumablesUnit => Keyboard([["КТ", "СТ", "Мавики"]]);
 
     public static object ForStep(string step, SessionState? session = null) => step switch
     {
@@ -693,6 +701,7 @@ static class Keyboards
         "control_frequency" => ControlFrequency,
         "coil_km" => CoilKmByDrone(session),
         "repair_unit" => RepairUnit,
+        "consumables_unit" => ConsumablesUnit,
         "callsign" or "pilot_number" or "rx_firmware" or "regularity_domain" or "bind_phrase" or "quantity"
             or "repair_equipment" or "repair_fault" or "repair_quantity" or "repair_note"
             or "consumables_needed" or "consumables_quantity" or "consumables_note" => CancelOnly,
@@ -1183,6 +1192,7 @@ sealed class ConsumablesStore
         "ID",
         "Дата запроса",
         "Запросил",
+        "Подразделение",
         "Необходимо",
         "Количество",
         "Примечание",
@@ -1208,10 +1218,11 @@ sealed class ConsumablesStore
             ws.Cell(row, 1).Value = nextId;
             ws.Cell(row, 2).Value = DateTime.Now.ToString("s");
             ws.Cell(row, 3).Value = reporter;
-            ws.Cell(row, 4).Value = payload["consumables_needed"];
-            ws.Cell(row, 5).Value = payload["consumables_quantity"];
-            ws.Cell(row, 6).Value = payload.GetValueOrDefault("consumables_note", "-");
-            ws.Cell(row, 7).Value = StatusInProgress;
+            ws.Cell(row, 4).Value = payload["consumables_unit"];
+            ws.Cell(row, 5).Value = payload["consumables_needed"];
+            ws.Cell(row, 6).Value = payload["consumables_quantity"];
+            ws.Cell(row, 7).Value = payload.GetValueOrDefault("consumables_note", "-");
+            ws.Cell(row, 8).Value = StatusInProgress;
 
             workbook.SaveAs(_excelPath);
             return nextId;
@@ -1280,13 +1291,13 @@ sealed class ConsumablesStore
                     continue;
                 }
 
-                var status = ws.Cell(r, 7).GetString();
+                var status = ws.Cell(r, 8).GetString();
                 if (status != StatusInProgress)
                 {
                     return false;
                 }
 
-                ws.Cell(r, 7).Value = StatusCompleted;
+                ws.Cell(r, 8).Value = StatusCompleted;
                 workbook.SaveAs(_excelPath);
                 return true;
             }
@@ -1354,10 +1365,11 @@ sealed class ConsumablesStore
             Id: long.Parse(ws.Cell(row, 1).GetString()),
             RequestDate: DateTime.Parse(ws.Cell(row, 2).GetString()),
             RequestedBy: ws.Cell(row, 3).GetString(),
-            Needed: ws.Cell(row, 4).GetString(),
-            Quantity: ws.Cell(row, 5).GetString(),
-            Note: ws.Cell(row, 6).GetString(),
-            Status: ws.Cell(row, 7).GetString());
+            Unit: ws.Cell(row, 4).GetString(),
+            Needed: ws.Cell(row, 5).GetString(),
+            Quantity: ws.Cell(row, 6).GetString(),
+            Note: ws.Cell(row, 7).GetString(),
+            Status: ws.Cell(row, 8).GetString());
     }
 }
 
@@ -1448,6 +1460,7 @@ record ConsumablesItem(
     long Id,
     DateTime RequestDate,
     string RequestedBy,
+    string Unit,
     string Needed,
     string Quantity,
     string Note,
@@ -1459,6 +1472,7 @@ record ConsumablesItem(
         sb.AppendLine($"ID: {Id}");
         sb.AppendLine($"Дата запроса: {RequestDate:dd.MM HH:mm}");
         sb.AppendLine($"Запросил: {RequestedBy}");
+        sb.AppendLine($"Подразделение: {Unit}");
         sb.AppendLine($"Необходимо: {Needed}");
         sb.AppendLine($"Количество: {Quantity}");
         sb.AppendLine($"Примечание: {Note}");
