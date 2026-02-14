@@ -71,6 +71,20 @@ sealed class BotApp
                     var userId = message.From.Id;
                     var reporter = BuildReporter(message.From);
 
+                    if (text == "Отменить заявку")
+                    {
+                        if (_sessions.Remove(userId))
+                        {
+                            await SendMessageAsync(chatId, "Заявка отменена.", Keyboards.MainMenu);
+                        }
+                        else
+                        {
+                            await SendMessageAsync(chatId, "Нет активной заявки для отмены.", Keyboards.MainMenu);
+                        }
+
+                        continue;
+                    }
+
                     if (_sessions.TryGetValue(userId, out var activeSession) &&
                         activeSession.IsManualInputStep() &&
                         IsMenuCommand(text))
@@ -107,13 +121,15 @@ sealed class BotApp
                         }
                         else
                         {
-                            await SendMessageAsync(chatId, $"Активные заявки: {total}", Keyboards.MainMenu);
+                            await SendMessageAsync(chatId, $"Активные заявки (всего): {total}", Keyboards.MainMenu);
 
+                            await SendMessageAsync(chatId, $"🛩 Заявки на дроны: {activeApplications.Count}", Keyboards.MainMenu);
                             foreach (var item in activeApplications)
                             {
                                 await SendMessageAsync(chatId, item.FormatCard(), Keyboards.MainMenu);
                             }
 
+                            await SendMessageAsync(chatId, $"🛠 Ремонт: {activeRepairs.Count}", Keyboards.MainMenu);
                             foreach (var item in activeRepairs)
                             {
                                 await SendMessageAsync(chatId, item.FormatCard(), Keyboards.MainMenu);
@@ -135,13 +151,15 @@ sealed class BotApp
                         }
                         else
                         {
-                            await SendMessageAsync(chatId, $"Завершённые заявки: {total}", Keyboards.MainMenu);
+                            await SendMessageAsync(chatId, $"Завершённые заявки (всего): {total}", Keyboards.MainMenu);
 
+                            await SendMessageAsync(chatId, $"🛩 Заявки на дроны: {completedApplications.Count}", Keyboards.MainMenu);
                             foreach (var item in completedApplications)
                             {
                                 await SendMessageAsync(chatId, item.FormatCard(), Keyboards.MainMenu);
                             }
 
+                            await SendMessageAsync(chatId, $"🛠 Ремонт: {completedRepairs.Count}", Keyboards.MainMenu);
                             foreach (var item in completedRepairs)
                             {
                                 await SendMessageAsync(chatId, item.FormatCard(), Keyboards.MainMenu);
@@ -501,6 +519,7 @@ static class Keyboards
     public static object MainMenu => Keyboard([["Активные заявки", "Завершенные заявки"], ["Оставить заявку"]]);
     public static object RequestMode => Keyboard([["Обычная заявка", "Ремонт"]]);
     public static object PilotType => Keyboard([["КТ", "Оптика", "СТ"]]);
+    public static object CancelOnly => Keyboard([["Отменить заявку"]]);
     public static object VideoFrequency => Keyboard([["5.8", "3.4", "3.3"], ["1.5", "1.2"]]);
     public static object ControlFrequency => Keyboard([["2.4", "900", "700"], ["500", "300 кузнец"]]);
     public static object RepairUnit => Keyboard([["КТ", "СТ"], ["Оптика", "Мавики"]]);
@@ -514,6 +533,8 @@ static class Keyboards
         "control_frequency" => ControlFrequency,
         "coil_km" => CoilKmByDrone(session),
         "repair_unit" => RepairUnit,
+        "callsign" or "pilot_number" or "rx_firmware" or "regularity_domain" or "bind_phrase" or "quantity"
+            or "repair_equipment" or "repair_fault" or "repair_quantity" or "repair_note" => CancelOnly,
         _ => MainMenu
     };
 
