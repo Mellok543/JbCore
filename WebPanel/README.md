@@ -57,3 +57,26 @@ dotnet run --project WebPanel/WebPanel.csproj
 2. Сделать импорт данных Excel -> PostgreSQL (one-time script).
 3. Переключить бота на общий PostgreSQL источник (или API) вместе с WebPanel.
 4. Добавить авторизацию/роли для веб-панели.
+
+## Важно для Windows (ошибка `Invalid JSON`)
+Если указываете путь в `appsettings.json`, нельзя использовать неэкранированные `\` в JSON-строке.
+
+Неправильно:
+```json
+"TablesDirectory": "E:\RiderProjects\CreateBot And Web\tables"
+```
+
+Правильно (любой вариант):
+```json
+"TablesDirectory": "E:/RiderProjects/CreateBot And Web/tables"
+```
+или
+```json
+"TablesDirectory": "E:\\RiderProjects\\CreateBot And Web\\tables"
+```
+
+Проще и безопаснее на Windows задавать путь через переменную окружения:
+```powershell
+$env:TablesDirectory = "E:/RiderProjects/CreateBot And Web/tables"
+dotnet run --project WebPanel/WebPanel.csproj
+```
