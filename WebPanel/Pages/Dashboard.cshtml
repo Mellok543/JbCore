@@ -1,13 +1,90 @@
 @page
+@model WebPanel.Pages.DashboardModel
 @{
     ViewData["Title"] = "Дашборд";
 }
 
 <h1>Дашборд</h1>
-<p>Здесь будет сводка по активным и завершенным заявкам.</p>
+<p class="muted">Оперативная сводка по заявкам и рекомендациям.</p>
+
+<div class="card-grid metrics">
+    <section class="card metric">
+        <h2>🛩 Дроны</h2>
+        <p>Активные: <strong>@Model.Dashboard.DroneActive</strong></p>
+        <p>Завершенные: <strong>@Model.Dashboard.DroneCompleted</strong></p>
+    </section>
+    <section class="card metric">
+        <h2>🛠 Ремонт</h2>
+        <p>Активные: <strong>@Model.Dashboard.RepairActive</strong></p>
+        <p>Завершенные: <strong>@Model.Dashboard.RepairCompleted</strong></p>
+    </section>
+    <section class="card metric">
+        <h2>📦 Комплектующие</h2>
+        <p>Активные: <strong>@Model.Dashboard.ConsumablesActive</strong></p>
+        <p>Завершенные: <strong>@Model.Dashboard.ConsumablesCompleted</strong></p>
+    </section>
+    <section class="card metric">
+        <h2>👤 Рекомендации</h2>
+        <p>Ожидают модерации: <strong>@Model.Dashboard.PendingRecommendations</strong></p>
+        <p><a asp-page="/Access">Открыть управление доступом</a></p>
+    </section>
+</div>
+
 <div class="card-grid">
-    <section class="card"><h2>Заявки на дроны</h2><p>В разработке</p></section>
-    <section class="card"><h2>Ремонт</h2><p>В разработке</p></section>
-    <section class="card"><h2>Комплектующие</h2><p>В разработке</p></section>
-    <section class="card"><h2>Рекомендации</h2><p>В разработке</p></section>
+    <section class="card">
+        <h3>Последние активные заявки на дроны</h3>
+        @if (Model.ActiveDroneRequests.Count == 0)
+        {
+            <p class="muted">Нет активных заявок.</p>
+        }
+        else
+        {
+            <ul class="request-list">
+                @foreach (var item in Model.ActiveDroneRequests)
+                {
+                    <li>
+                        <strong>#@item.Id</strong> · @item.Unit · @item.Description
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+
+    <section class="card">
+        <h3>Последние активные заявки на ремонт</h3>
+        @if (Model.ActiveRepairRequests.Count == 0)
+        {
+            <p class="muted">Нет активных заявок.</p>
+        }
+        else
+        {
+            <ul class="request-list">
+                @foreach (var item in Model.ActiveRepairRequests)
+                {
+                    <li>
+                        <strong>#@item.Id</strong> · @item.Unit · @item.Description
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+
+    <section class="card">
+        <h3>Последние активные заявки на комплектующие</h3>
+        @if (Model.ActiveConsumablesRequests.Count == 0)
+        {
+            <p class="muted">Нет активных заявок.</p>
+        }
+        else
+        {
+            <ul class="request-list">
+                @foreach (var item in Model.ActiveConsumablesRequests)
+                {
+                    <li>
+                        <strong>#@item.Id</strong> · @item.Unit · @item.Description
+                    </li>
+                }
+            </ul>
+        }
+    </section>
 </div>

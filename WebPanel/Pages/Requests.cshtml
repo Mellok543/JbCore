@@ -1,0 +1,67 @@
+@page
+@model WebPanel.Pages.RequestsModel
+@{
+    ViewData["Title"] = "Заявки";
+}
+
+<h1>Заявки</h1>
+
+<form method="get" class="filters card">
+    <label>
+        Категория
+        <select name="Category">
+            <option value="drone" selected="@(Model.Category == "drone" ? "selected" : null)">Заявки на дроны</option>
+            <option value="repair" selected="@(Model.Category == "repair" ? "selected" : null)">Заявки на ремонт</option>
+            <option value="consumables" selected="@(Model.Category == "consumables" ? "selected" : null)">Заявки на комплектующие</option>
+        </select>
+    </label>
+
+    <label>
+        Статус
+        <select name="Status">
+            <option value="active" selected="@(Model.Status == "active" ? "selected" : null)">Активные</option>
+            <option value="completed" selected="@(Model.Status == "completed" ? "selected" : null)">Завершенные</option>
+        </select>
+    </label>
+
+    <button type="submit">Показать</button>
+</form>
+
+<section class="card">
+    <h2>Найдено: @Model.Requests.Count</h2>
+
+    @if (Model.Requests.Count == 0)
+    {
+        <p class="muted">Нет заявок по выбранному фильтру.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Дата</th>
+                    <th>Кто передал</th>
+                    <th>Подразделение</th>
+                    <th>Описание</th>
+                    <th>Примечание</th>
+                    <th>Статус</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var request in Model.Requests)
+                {
+                    <tr>
+                        <td>#@request.Id</td>
+                        <td>@request.Date</td>
+                        <td>@request.Reporter</td>
+                        <td>@request.Unit</td>
+                        <td>@request.Description</td>
+                        <td>@request.Note</td>
+                        <td>@request.Status</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>

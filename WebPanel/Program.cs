@@ -1,6 +1,9 @@
+using WebPanel.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
+builder.Services.AddSingleton<ExcelAdminService>();
 
 var app = builder.Build();
 
@@ -28,6 +31,8 @@ app.MapGet("/api/roadmap", () => Results.Ok(new[]
     "Access/roles management",
     "FAQ and support tickets"
 }));
+
+app.MapGet("/api/dashboard", (ExcelAdminService service) => Results.Ok(service.GetDashboard()));
 
 app.MapRazorPages();
 
