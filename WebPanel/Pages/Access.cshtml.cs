@@ -4,7 +4,7 @@ using WebPanel.Services;
 
 namespace WebPanel.Pages;
 
-public sealed class AccessModel(ExcelAdminService adminService) : PageModel
+public sealed class AccessModel(IAdminDataService adminService) : PageModel
 {
     public IReadOnlyList<UserAccessVm> Users { get; private set; } = [];
     public IReadOnlyList<RecommendationVm> PendingRecommendations { get; private set; } = [];

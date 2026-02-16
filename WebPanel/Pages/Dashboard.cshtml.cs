@@ -3,7 +3,7 @@ using WebPanel.Services;
 
 namespace WebPanel.Pages;
 
-public sealed class DashboardModel(ExcelAdminService adminService) : PageModel
+public sealed class DashboardModel(IAdminDataService adminService) : PageModel
 {
     public DashboardVm Dashboard { get; private set; } = new(0, 0, 0, 0, 0, 0, 0);
     public IReadOnlyList<RequestVm> ActiveDroneRequests { get; private set; } = [];

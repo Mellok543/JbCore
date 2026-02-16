@@ -1,35 +1,59 @@
 # WebPanel
 
-WebPanel — это веб-интерфейс для администрирования Telegram-бота.
+WebPanel — веб-интерфейс для администрирования Telegram-бота.
+
+## Где указывать путь к Excel таблицам
+Есть два основных способа:
+
+1. В `WebPanel/appsettings.json`:
+   - `TablesDirectory` — папка с таблицами
+   - `ApplicationsFileName`, `RepairsFileName`, `ConsumablesFileName`, `AccessFileName` — имена Excel файлов
+2. Через переменные окружения (приоритетнее, удобно для сервера/systemd):
+   - `TablesDirectory=/opt/bot/tables`
+
+Пример запуска в Excel-режиме:
+
+```bash
+Storage__Provider=excel TablesDirectory=/opt/bot/tables dotnet run --project WebPanel/WebPanel.csproj
+```
+
+---
+
+## Начало перехода на настоящую БД (PostgreSQL)
+В проекте уже добавлена начальная инфраструктура:
+
+- `IAdminDataService` — единый интерфейс источника данных.
+- `ExcelAdminService` — текущая работа с Excel.
+- `DbAdminDataService` + `AdminDbContext` — новая реализация для PostgreSQL.
+- Переключение режима через `Storage:Provider`:
+  - `excel` (по умолчанию)
+  - `postgres`
+
+Пример запуска в Postgres-режиме:
+
+```bash
+Storage__Provider=postgres \
+ConnectionStrings__Postgres="Host=localhost;Port=5432;Database=repairbot;Username=repairbot;Password=repairbot" \
+dotnet run --project WebPanel/WebPanel.csproj
+```
+
+При старте в `postgres` режиме используется `EnsureCreated()` для создания таблиц.
+
+---
 
 ## Что реализовано сейчас
-- Дашборд со сводкой по заявкам (дроны / ремонт / комплектующие) и pending-рекомендациям.
-- Отдельная страница заявок с фильтрами по категории и статусу.
+- Дашборд со сводкой по заявкам и pending-рекомендациям.
+- Страница заявок с фильтрами по категории/статусу.
 - Страница управления доступом:
-  - просмотр пользователей и их прав;
-  - модерация рекомендаций (принять/отклонить) с записью результата в Excel.
+  - просмотр пользователей и прав,
+  - модерация рекомендаций (принять/отклонить).
 - API endpoints:
   - `GET /api/health`
   - `GET /api/roadmap`
   - `GET /api/dashboard`
 
-## Конфигурация
-По умолчанию WebPanel читает Excel-файлы из директории запуска приложения.
-Можно переопределить через переменные окружения:
-
-- `TablesDirectory` (папка с таблицами)
-- `ApplicationsFileName` (по умолчанию `applications.xlsx`)
-- `RepairsFileName` (по умолчанию `repairs.xlsx`)
-- `ConsumablesFileName` (по умолчанию `consumables.xlsx`)
-- `AccessFileName` (по умолчанию `access_users.xlsx`)
-
-Пример:
-
-```bash
-TablesDirectory=/opt/bot/tables dotnet run --project WebPanel/WebPanel.csproj
-```
-
-## Следующие шаги
-1. Добавить авторизацию и роли в WebPanel.
-2. Перенести данные с Excel на PostgreSQL и дать боту + вебу общий источник.
-3. Добавить редактирование прав напрямую из WebPanel.
+## Следующие шаги по миграции на БД
+1. Добавить EF Core migrations вместо `EnsureCreated`.
+2. Сделать импорт данных Excel -> PostgreSQL (one-time script).
+3. Переключить бота на общий PostgreSQL источник (или API) вместе с WebPanel.
+4. Добавить авторизацию/роли для веб-панели.

@@ -4,7 +4,7 @@ using WebPanel.Services;
 
 namespace WebPanel.Pages;
 
-public sealed class RequestsModel(ExcelAdminService adminService) : PageModel
+public sealed class RequestsModel(IAdminDataService adminService) : PageModel
 {
     [BindProperty(SupportsGet = true)]
     public string Category { get; set; } = "drone";
