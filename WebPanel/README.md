@@ -80,3 +80,32 @@ dotnet run --project WebPanel/WebPanel.csproj
 $env:TablesDirectory = "E:/RiderProjects/CreateBot And Web/tables"
 dotnet run --project WebPanel/WebPanel.csproj
 ```
+
+## Ошибка подключения к PostgreSQL (`10061`, connection refused)
+Если видите ошибку вида `Failed to connect to 127.0.0.1:5432`:
+
+1. Убедитесь, что PostgreSQL реально запущен и слушает порт `5432`.
+2. Проверьте `ConnectionStrings:Postgres` (host/port/db/user/password).
+3. В Rider откройте Database и проверьте подключение теми же параметрами.
+
+Для более мягкого запуска добавлен флаг:
+
+```json
+"Storage": {
+  "Provider": "postgres",
+  "AllowFallbackToExcel": true
+}
+```
+
+Если PostgreSQL недоступен, WebPanel автоматически перейдет на Excel-режим и не упадет.
+
+Если хотите строгий режим (без fallback), установите:
+
+```json
+"Storage": {
+  "Provider": "postgres",
+  "AllowFallbackToExcel": false
+}
+```
+
+Тогда приложение завершится с понятной ошибкой, если БД не поднята.
