@@ -2,44 +2,55 @@
 
 WebPanel — веб-интерфейс для администрирования Telegram-бота.
 
-## Где указывать путь к Excel таблицам
-Есть два основных способа:
+## Режим хранения
+WebPanel теперь работает **только с PostgreSQL** (Excel-режим полностью удалён).
 
-1. В `WebPanel/appsettings.json`:
-   - `TablesDirectory` — папка с таблицами
-   - `ApplicationsFileName`, `RepairsFileName`, `ConsumablesFileName`, `AccessFileName` — имена Excel файлов
-2. Через переменные окружения (приоритетнее, удобно для сервера/systemd):
-   - `TablesDirectory=/opt/bot/tables`
+## Конфигурация
+Настроить нужно только строку подключения:
 
-Пример запуска в Excel-режиме:
+- `ConnectionStrings:Postgres`
 
-```bash
-Storage__Provider=excel TablesDirectory=/opt/bot/tables dotnet run --project WebPanel/WebPanel.csproj
+Пример в `WebPanel/appsettings.json`:
+
+```json
+{
+  "ConnectionStrings": {
+    "Postgres": "Host=localhost;Port=5432;Database=repairbot;Username=repairbot;Password=repairbot"
+  }
+}
 ```
 
----
-
-## Начало перехода на настоящую БД (PostgreSQL)
-В проекте уже добавлена начальная инфраструктура:
-
-- `IAdminDataService` — единый интерфейс источника данных.
-- `ExcelAdminService` — текущая работа с Excel.
-- `DbAdminDataService` + `AdminDbContext` — новая реализация для PostgreSQL.
-- Переключение режима через `Storage:Provider`:
-  - `excel` (по умолчанию)
-  - `postgres`
-
-Пример запуска в Postgres-режиме:
+Пример запуска через переменные окружения:
 
 ```bash
-Storage__Provider=postgres \
 ConnectionStrings__Postgres="Host=localhost;Port=5432;Database=repairbot;Username=repairbot;Password=repairbot" \
 dotnet run --project WebPanel/WebPanel.csproj
 ```
 
-При старте в `postgres` режиме используется `EnsureCreated()` для создания таблиц.
+## Что создаётся в БД
+При старте приложения вызывается `EnsureCreated()`, и создаются таблицы:
 
----
+- `requests`
+- `users`
+- `recommendations`
+
+## Ошибка подключения к PostgreSQL
+Если WebPanel не стартует, проверьте:
+
+1. PostgreSQL запущен и слушает нужный порт.
+2. Пользователь/пароль в `ConnectionStrings:Postgres` верные.
+3. Есть доступ к базе `repairbot`.
+
+### Частая ошибка: `28P01 password authentication failed`
+Это означает, что пароль/пользователь в строке подключения не совпадает с PostgreSQL.
+
+Исправление на сервере:
+
+```bash
+sudo -u postgres psql -c "ALTER USER repairbot WITH PASSWORD 'НОВЫЙ_ПАРОЛЬ';"
+```
+
+После этого обновите пароль в env/appsettings и перезапустите `webpanel.service`.
 
 ## Что реализовано сейчас
 - Дашборд со сводкой по заявкам и pending-рекомендациям.
@@ -52,60 +63,7 @@ dotnet run --project WebPanel/WebPanel.csproj
   - `GET /api/roadmap`
   - `GET /api/dashboard`
 
-## Следующие шаги по миграции на БД
+## Следующие шаги
 1. Добавить EF Core migrations вместо `EnsureCreated`.
-2. Сделать импорт данных Excel -> PostgreSQL (one-time script).
-3. Переключить бота на общий PostgreSQL источник (или API) вместе с WebPanel.
-4. Добавить авторизацию/роли для веб-панели.
-
-## Важно для Windows (ошибка `Invalid JSON`)
-Если указываете путь в `appsettings.json`, нельзя использовать неэкранированные `\` в JSON-строке.
-
-Неправильно:
-```json
-"TablesDirectory": "E:\RiderProjects\CreateBot And Web\tables"
-```
-
-Правильно (любой вариант):
-```json
-"TablesDirectory": "E:/RiderProjects/CreateBot And Web/tables"
-```
-или
-```json
-"TablesDirectory": "E:\\RiderProjects\\CreateBot And Web\\tables"
-```
-
-Проще и безопаснее на Windows задавать путь через переменную окружения:
-```powershell
-$env:TablesDirectory = "E:/RiderProjects/CreateBot And Web/tables"
-dotnet run --project WebPanel/WebPanel.csproj
-```
-
-## Ошибка подключения к PostgreSQL (`10061`, connection refused)
-Если видите ошибку вида `Failed to connect to 127.0.0.1:5432`:
-
-1. Убедитесь, что PostgreSQL реально запущен и слушает порт `5432`.
-2. Проверьте `ConnectionStrings:Postgres` (host/port/db/user/password).
-3. В Rider откройте Database и проверьте подключение теми же параметрами.
-
-Для более мягкого запуска добавлен флаг:
-
-```json
-"Storage": {
-  "Provider": "postgres",
-  "AllowFallbackToExcel": true
-}
-```
-
-Если PostgreSQL недоступен, WebPanel автоматически перейдет на Excel-режим и не упадет.
-
-Если хотите строгий режим (без fallback), установите:
-
-```json
-"Storage": {
-  "Provider": "postgres",
-  "AllowFallbackToExcel": false
-}
-```
-
-Тогда приложение завершится с понятной ошибкой, если БД не поднята.
+2. Реализовать импорт legacy данных из Excel (one-time script), если ещё нужен.
+3. Переключить бота на общий PostgreSQL источник (или API).
