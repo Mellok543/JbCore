@@ -103,3 +103,19 @@ sudo systemctl restart webpanel
 PGPASSWORD='NEW_STRONG_PASSWORD' psql -h 127.0.0.1 -p 5432 -U repairbot -d repairbot -c "select now();"
 ```
 
+
+### Если видите `PostgresException: 42703 (column does not exist)`
+Это ошибка несовместимой схемы таблицы `requests` (например, старая структура без колонок категории/статуса).
+
+Рекомендуемые шаги:
+
+```bash
+# посмотреть структуру таблицы
+sudo -u postgres psql -d repairbot -c '\d+ requests'
+
+# если таблица legacy и данные не нужны — удалить и дать WebPanel пересоздать
+sudo -u postgres psql -d repairbot -c 'DROP TABLE IF EXISTS requests CASCADE;'
+sudo systemctl restart webpanel
+```
+
+Если данные в таблице нужны — выполните миграцию схемы вручную и только потом перезапускайте WebPanel.

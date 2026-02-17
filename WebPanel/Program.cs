@@ -33,14 +33,41 @@ using (var scope = app.Services.CreateScope())
     try
     {
         db.Database.EnsureCreated();
-        db.Database.ExecuteSqlRaw("ALTER TABLE IF EXISTS requests ADD COLUMN IF NOT EXISTS external_id bigint");
-        db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS idx_requests_category_status ON requests (category, status)");
+        db.Database.ExecuteSqlRaw("""ALTER TABLE IF EXISTS requests ADD COLUMN IF NOT EXISTS "ExternalId" bigint""");
+        db.Database.ExecuteSqlRaw("""
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = 'requests' AND column_name = 'Category'
+                ) AND EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = 'requests' AND column_name = 'Status'
+                ) THEN
+                    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_requests_category_status ON requests ("Category", "Status")';
+                ELSIF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = 'requests' AND column_name = 'category'
+                ) AND EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = 'requests' AND column_name = 'status'
+                ) THEN
+                    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_requests_category_status ON requests (category, status)';
+                END IF;
+            END $$;
+            """);
     }
     catch (PostgresException ex) when (ex.SqlState == "28P01")
     {
         throw new InvalidOperationException(
             "Не удалось подключиться к PostgreSQL: ошибка авторизации пользователя/пароля (28P01). " +
             "Проверьте ConnectionStrings:Postgres или env ConnectionStrings__Postgres, затем перезапустите WebPanel.", ex);
+    }
+    catch (PostgresException ex) when (ex.SqlState == "42703")
+    {
+        throw new InvalidOperationException(
+            "Ошибка схемы БД (42703): отсутствуют ожидаемые колонки в таблице requests. " +
+            "Проверьте структуру таблицы requests или пересоздайте схему для WebPanel.", ex);
     }
     catch (NpgsqlException ex)
     {
