@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ClosedXML.Excel;
-using Npgsql;
 
 var settings = AppSettings.Default;
 var botToken = Environment.GetEnvironmentVariable("BOT_TOKEN");
@@ -14,8 +13,7 @@ if (string.IsNullOrWhiteSpace(botToken))
 var tablesDir = Path.GetFullPath(settings.TablesDirectory);
 Directory.CreateDirectory(tablesDir);
 
-var dbMirrorConnection = Environment.GetEnvironmentVariable("BOT_DB_CONNECTION")
-    ?? Environment.GetEnvironmentVariable("ConnectionStrings__Postgres");
+var webSyncUrl = Environment.GetEnvironmentVariable("WEB_SYNC_URL");
 
 var app = new BotApp(
     botToken,
@@ -28,7 +26,7 @@ var app = new BotApp(
     settings.AllowedUserIds,
     settings.NotificationUserIds,
     settings.RecommendationNotificationUserIds,
-    dbMirrorConnection);
+    webSyncUrl);
 await app.RunAsync();
 
 sealed record AppSettings(
@@ -78,7 +76,7 @@ sealed class BotApp
     private readonly HashSet<long> _allowedUserIds;
     private readonly HashSet<long> _notificationUserIds;
     private readonly HashSet<long> _recommendationNotificationUserIds;
-    private readonly DbMirrorStore? _dbMirrorStore;
+    private readonly string? _webSyncUrl;
     private readonly Dictionary<long, SessionState> _sessions = new();
     private int _offset;
 
@@ -93,7 +91,7 @@ sealed class BotApp
         HashSet<long> initialAllowedUserIds,
         HashSet<long> notificationUserIds,
         HashSet<long> recommendationNotificationUserIds,
-        string? dbMirrorConnectionString)
+        string? webSyncUrl)
     {
         _token = token;
         _closerIds = closerIds ?? new();
@@ -105,7 +103,7 @@ sealed class BotApp
         _allowedUserIds = new HashSet<long>();
         _notificationUserIds = notificationUserIds ?? new();
         _recommendationNotificationUserIds = recommendationNotificationUserIds ?? new();
-        _dbMirrorStore = DbMirrorStore.TryCreate(dbMirrorConnectionString);
+        _webSyncUrl = string.IsNullOrWhiteSpace(webSyncUrl) ? null : webSyncUrl.Trim();
 
         var allowedSeed = initialAllowedUserIds ?? new HashSet<long>();
         _accessStore.Bootstrap(allowedSeed, _closerIds, _accessAdminIds, _notificationUserIds, _recommendationNotificationUserIds);
@@ -142,9 +140,9 @@ sealed class BotApp
     public async Task RunAsync()
     {
         Console.WriteLine("Бот запущен...");
-        Console.WriteLine(_dbMirrorStore is null
-            ? "Зеркалирование в PostgreSQL отключено (BOT_DB_CONNECTION не задан)."
-            : "Зеркалирование в PostgreSQL включено.");
+        Console.WriteLine(_webSyncUrl is null
+            ? "WEB синхронизация отключена (WEB_SYNC_URL не задан)."
+            : $"WEB синхронизация включена: {_webSyncUrl}");
 
         while (true)
         {
@@ -301,25 +299,25 @@ sealed class BotApp
                         {
                             var repairId = _repairStore.AddRepair(reporter, session.Data);
                             var repair = _repairStore.GetById(repairId);
-                            _dbMirrorStore?.UpsertRepair(repair);
                             await SendMessageAsync(chatId, $"Заявка на ремонт создана!\n\n{repair.FormatCard()}", mainMenu);
                             await NotifyNewRequestAsync($"Новая заявка на ремонт #{repair.Id} от {repair.Reporter}");
+                            await TryTriggerWebSyncAsync();
                         }
                         else if (session.IsConsumablesRequest)
                         {
                             var consumablesId = _consumablesStore.AddRequest(reporter, session.Data);
                             var consumables = _consumablesStore.GetById(consumablesId);
-                            _dbMirrorStore?.UpsertConsumables(consumables);
                             await SendMessageAsync(chatId, $"Заявка на комплектующие создана!\n\n{consumables.FormatCard()}", mainMenu);
                             await NotifyNewRequestAsync($"Новая заявка на комплектующие #{consumables.Id} от {consumables.RequestedBy}");
+                            await TryTriggerWebSyncAsync();
                         }
                         else
                         {
                             var appId = _store.AddApplication(reporter, session.Data);
                             var appModel = _store.GetById(appId);
-                            _dbMirrorStore?.UpsertDrone(appModel);
                             await SendMessageAsync(chatId, $"Заявка создана!\n\n{appModel.FormatCard()}", mainMenu);
                             await NotifyNewRequestAsync($"Новая заявка на дроны #{appModel.Id} от {appModel.Reporter}");
+                            await TryTriggerWebSyncAsync();
                         }
                     }
                     else
@@ -460,14 +458,8 @@ sealed class BotApp
                 _ => _consumablesStore.CompleteRequest(id.Value)
             };
 
-            if (ok)
-            {
-                if (session.Step == "complete_select_drones") _dbMirrorStore?.MarkCompleted("drone", id.Value);
-                else if (session.Step == "complete_select_repair") _dbMirrorStore?.MarkCompleted("repair", id.Value);
-                else _dbMirrorStore?.MarkCompleted("consumables", id.Value);
-            }
-
             await SendMessageAsync(chatId, ok ? $"Заявка #{id.Value} завершена." : $"Заявка #{id.Value} не найдена или уже завершена.", mainMenu);
+            if (ok) await TryTriggerWebSyncAsync();
             session.SetStep("done");
             return true;
         }
@@ -835,6 +827,27 @@ sealed class BotApp
             or "Выдать доступ" or "Забрать доступ" or "Выдать завершение" or "Забрать завершение" or "Выдать управление" or "Забрать управление"
             or "Вкл увед. заявок" or "Выкл увед. заявок" or "Вкл увед. рек." or "Выкл увед. рек."
             or "Принять #" or "Отклонить #" or "Назад";
+    }
+
+    private async Task TryTriggerWebSyncAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_webSyncUrl))
+        {
+            return;
+        }
+
+        try
+        {
+            using var response = await _httpClient.PostAsync(_webSyncUrl, content: null);
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"WEB синхронизация вернула код {(int)response.StatusCode}.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка WEB синхронизации: {ex.Message}");
+        }
     }
 
     private static string BuildReporter(User user)
@@ -2490,138 +2503,6 @@ sealed class AccessStore
 }
 
 
-sealed class DbMirrorStore
-{
-    private readonly string _connectionString;
-
-    private DbMirrorStore(string connectionString)
-    {
-        _connectionString = connectionString;
-        EnsureSchema();
-    }
-
-    public static DbMirrorStore? TryCreate(string? connectionString)
-    {
-        if (string.IsNullOrWhiteSpace(connectionString))
-        {
-            return null;
-        }
-
-        try
-        {
-            return new DbMirrorStore(connectionString);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Зеркалирование в PostgreSQL отключено: {ex.Message}");
-            return null;
-        }
-    }
-
-    public void UpsertDrone(Application app)
-        => UpsertRequest("drone", app.Id, app.CreatedAt, app.Reporter, app.PilotType,
-            $"Позывной: {app.Callsign}; Тип дрона: {app.DroneType}; Кол-во: {app.Quantity}",
-            string.IsNullOrWhiteSpace(app.Note) ? "-" : app.Note,
-            app.Status == ApplicationStore.StatusCompleted ? "completed" : "active");
-
-    public void UpsertRepair(RepairItem repair)
-        => UpsertRequest("repair", repair.Id, repair.TransferDate, repair.Reporter,
-            repair.Unit,
-            $"Оборудование: {repair.Equipment}; Неисправность: {repair.Fault}; Кол-во: {repair.Quantity}",
-            string.IsNullOrWhiteSpace(repair.Note) ? "-" : repair.Note,
-            repair.Status == RepairStore.StatusCompleted ? "completed" : "active");
-
-    public void UpsertConsumables(ConsumablesItem item)
-        => UpsertRequest("consumables", item.Id, item.RequestDate, item.RequestedBy,
-            item.Unit,
-            $"Необходимо: {item.Needed}; Кол-во: {item.Quantity}",
-            string.IsNullOrWhiteSpace(item.Note) ? "-" : item.Note,
-            item.Status == ConsumablesStore.StatusCompleted ? "completed" : "active");
-
-    public void MarkCompleted(string category, long externalId)
-    {
-        try
-        {
-            using var conn = new NpgsqlConnection(_connectionString);
-            conn.Open();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = """UPDATE requests SET "Status"='completed' WHERE "Id"=@id""";
-            cmd.Parameters.AddWithValue("id", BuildInternalId(category, externalId));
-            cmd.ExecuteNonQuery();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Ошибка зеркалирования завершения заявки #{externalId}: {ex.Message}");
-        }
-    }
-
-    private void UpsertRequest(string category, long externalId, DateTime createdAt, string reporter, string unit, string description, string note, string status)
-    {
-        try
-        {
-            using var conn = new NpgsqlConnection(_connectionString);
-            conn.Open();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = """
-                INSERT INTO requests ("Id", "ExternalId", "Category", "CreatedAtUtc", "Reporter", "Unit", "Description", "Note", "Status")
-                VALUES (@id, @externalId, @category, @createdAt, @reporter, @unit, @description, @note, @status)
-                ON CONFLICT ("Id") DO UPDATE SET
-                    "ExternalId" = EXCLUDED."ExternalId",
-                    "Category" = EXCLUDED."Category",
-                    "CreatedAtUtc" = EXCLUDED."CreatedAtUtc",
-                    "Reporter" = EXCLUDED."Reporter",
-                    "Unit" = EXCLUDED."Unit",
-                    "Description" = EXCLUDED."Description",
-                    "Note" = EXCLUDED."Note",
-                    "Status" = EXCLUDED."Status";
-                """;
-
-            cmd.Parameters.AddWithValue("id", BuildInternalId(category, externalId));
-            cmd.Parameters.AddWithValue("externalId", externalId);
-            cmd.Parameters.AddWithValue("category", category);
-            cmd.Parameters.AddWithValue("createdAt", DateTime.SpecifyKind(createdAt, DateTimeKind.Local).ToUniversalTime());
-            cmd.Parameters.AddWithValue("reporter", reporter);
-            cmd.Parameters.AddWithValue("unit", unit);
-            cmd.Parameters.AddWithValue("description", description);
-            cmd.Parameters.AddWithValue("note", note);
-            cmd.Parameters.AddWithValue("status", status);
-            cmd.ExecuteNonQuery();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Ошибка зеркалирования заявки #{externalId}: {ex.Message}");
-        }
-    }
-
-    private void EnsureSchema()
-    {
-        using var conn = new NpgsqlConnection(_connectionString);
-        conn.Open();
-
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            CREATE TABLE IF NOT EXISTS requests (
-                "Id" bigint PRIMARY KEY,
-                "ExternalId" bigint NULL,
-                "Category" text NOT NULL,
-                "CreatedAtUtc" timestamp with time zone NOT NULL,
-                "Reporter" text NOT NULL,
-                "Unit" text NOT NULL,
-                "Description" text NOT NULL,
-                "Note" text NOT NULL,
-                "Status" text NOT NULL
-            );
-            """;
-        cmd.ExecuteNonQuery();
-    }
-
-    private static long BuildInternalId(string category, long sourceId) => category switch
-    {
-        "repair" => 1_000_000_000 + sourceId,
-        "consumables" => 2_000_000_000 + sourceId,
-        _ => sourceId
-    };
-}
 
 record RecommendationReviewResult(bool Ok, string Message, long? TargetUserId);
 
