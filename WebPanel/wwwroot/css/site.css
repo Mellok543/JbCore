@@ -30,3 +30,10 @@ th { font-size: 14px; color: #4e5a7a; }
 .tag-open { background: #fff6dd; color: #8a6700; }
 .tag-done { background: #e9f8ed; color: #206b39; }
 .support-form { display: grid; gap: 12px; }
+
+
+.topline { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.user-panel { display: flex; align-items: center; gap: 8px; color: #fff; font-weight: 600; }
+.user-panel form { margin: 0; }
+.login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.login-card { width: min(460px, 100%); }

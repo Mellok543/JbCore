@@ -8,14 +8,23 @@
 </head>
 <body>
 <header>
-    <nav>
-        <a asp-page="/Index">Главная</a>
-        <a asp-page="/Dashboard">Дашборд</a>
-        <a asp-page="/Requests">Заявки</a>
-        <a asp-page="/Access">Управление доступом</a>
-        <a asp-page="/Faq">FAQ</a>
-        <a asp-page="/Support">Техподдержка</a>
-    </nav>
+    <div class="topline">
+        <nav>
+            <a asp-page="/Index">Главная</a>
+            <a asp-page="/Dashboard">Дашборд</a>
+            <a asp-page="/Requests">Заявки</a>
+            <a asp-page="/Access">Управление доступом</a>
+            <a asp-page="/Faq">FAQ</a>
+            <a asp-page="/Support">Техподдержка</a>
+        </nav>
+
+        <div class="user-panel">
+            <span>@(User.Identity?.Name ?? "user")</span>
+            <form method="post" asp-page="/Login" asp-page-handler="Logout">
+                <button type="submit">Выйти</button>
+            </form>
+        </div>
+    </div>
 </header>
 <main>
     @RenderBody()
