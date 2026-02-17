@@ -3,29 +3,58 @@
 WebPanel — веб-интерфейс для администрирования Telegram-бота.
 
 ## Режим хранения
-WebPanel теперь работает **только с PostgreSQL** (Excel-режим полностью удалён).
+WebPanel работает только с PostgreSQL.
 
 ## Конфигурация
-Настроить нужно только строку подключения:
+Обязательная настройка:
 
 - `ConnectionStrings:Postgres`
 
-Пример в `WebPanel/appsettings.json`:
+Опционально для импорта из Excel (бот может продолжать работать на Excel):
+
+- `ExcelSync:RunOnStartup` — запускать синхронизацию при старте (`true/false`)
+- `ExcelSync:TablesDirectory` — папка с Excel-файлами бота
+- `ExcelSync:ApplicationsFileName`
+- `ExcelSync:RepairsFileName`
+- `ExcelSync:ConsumablesFileName`
+- `ExcelSync:AccessFileName`
+
+Пример `WebPanel/appsettings.json`:
 
 ```json
 {
   "ConnectionStrings": {
     "Postgres": "Host=localhost;Port=5432;Database=repairbot;Username=repairbot;Password=repairbot"
+  },
+  "ExcelSync": {
+    "RunOnStartup": false,
+    "TablesDirectory": "../",
+    "ApplicationsFileName": "applications.xlsx",
+    "RepairsFileName": "repairs.xlsx",
+    "ConsumablesFileName": "consumables.xlsx",
+    "AccessFileName": "access_users.xlsx"
   }
 }
 ```
 
-Пример запуска через переменные окружения:
+## Как переносить данные с Excel (бот остаётся на Excel)
+1. Укажите `ExcelSync:TablesDirectory` на папку, где бот пишет файлы.
+2. Запустите WebPanel.
+3. Выполните импорт вручную:
 
 ```bash
-ConnectionStrings__Postgres="Host=localhost;Port=5432;Database=repairbot;Username=repairbot;Password=repairbot" \
-dotnet run --project WebPanel/WebPanel.csproj
+curl -X POST http://127.0.0.1:8080/api/sync/excel-to-db
 ```
+
+4. Проверьте метрики/списки в WebPanel.
+
+### Что синхронизируется
+- `applications.xlsx` (`Applications`) -> `requests` (`category=drone`)
+- `repairs.xlsx` (`Repairs`) -> `requests` (`category=repair`)
+- `consumables.xlsx` (`Consumables`) -> `requests` (`category=consumables`)
+- `access_users.xlsx` (`Users`, `Recommendations`) -> `users`, `recommendations`
+
+> Для исключения конфликтов `ID` между категориями используется внутренний ID в БД, а в UI показывается исходный ID из Excel.
 
 ## Что создаётся в БД
 При старте приложения вызывается `EnsureCreated()`, и создаются таблицы:
@@ -33,6 +62,8 @@ dotnet run --project WebPanel/WebPanel.csproj
 - `requests`
 - `users`
 - `recommendations`
+
+Также автоматически добавляется колонка `requests.external_id` (если отсутствует).
 
 ## Ошибка подключения к PostgreSQL
 Если WebPanel не стартует, проверьте:
@@ -42,28 +73,9 @@ dotnet run --project WebPanel/WebPanel.csproj
 3. Есть доступ к базе `repairbot`.
 
 ### Частая ошибка: `28P01 password authentication failed`
-Это означает, что пароль/пользователь в строке подключения не совпадает с PostgreSQL.
-
-Исправление на сервере:
 
 ```bash
 sudo -u postgres psql -c "ALTER USER repairbot WITH PASSWORD 'НОВЫЙ_ПАРОЛЬ';"
 ```
 
 После этого обновите пароль в env/appsettings и перезапустите `webpanel.service`.
-
-## Что реализовано сейчас
-- Дашборд со сводкой по заявкам и pending-рекомендациям.
-- Страница заявок с фильтрами по категории/статусу.
-- Страница управления доступом:
-  - просмотр пользователей и прав,
-  - модерация рекомендаций (принять/отклонить).
-- API endpoints:
-  - `GET /api/health`
-  - `GET /api/roadmap`
-  - `GET /api/dashboard`
-
-## Следующие шаги
-1. Добавить EF Core migrations вместо `EnsureCreated`.
-2. Реализовать импорт legacy данных из Excel (one-time script), если ещё нужен.
-3. Переключить бота на общий PostgreSQL источник (или API).

@@ -36,7 +36,7 @@ public sealed class DbAdminDataService(AdminDbContext db) : IAdminDataService
             .Where(x => x.Category == category && x.Status == status)
             .OrderByDescending(x => x.Id)
             .Select(x => new RequestVm(
-                x.Id,
+                x.ExternalId ?? x.Id,
                 ToCategoryTitle(x.Category),
                 x.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss"),
                 x.Reporter,

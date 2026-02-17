@@ -14,6 +14,7 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
         modelBuilder.Entity<RequestEntity>().HasKey(x => x.Id);
         modelBuilder.Entity<RequestEntity>().Property(x => x.Category).HasMaxLength(32);
         modelBuilder.Entity<RequestEntity>().Property(x => x.Status).HasMaxLength(32);
+        modelBuilder.Entity<RequestEntity>().Property(x => x.ExternalId);
 
         modelBuilder.Entity<UserAccessEntity>().ToTable("users");
         modelBuilder.Entity<UserAccessEntity>().HasKey(x => x.UserId);
@@ -28,6 +29,7 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
 public sealed class RequestEntity
 {
     public long Id { get; set; }
+    public long? ExternalId { get; set; }
     public string Category { get; set; } = string.Empty;
     public DateTime CreatedAtUtc { get; set; }
     public string Reporter { get; set; } = string.Empty;
