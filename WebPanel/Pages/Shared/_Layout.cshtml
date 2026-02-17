@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Drone & MicroLab Panel</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+<header>
+    <div class="topline">
+        <div class="brand">
+            <strong>⚡ Drone & MicroLab</strong>
+            <span>закрытая панель команды</span>
+        </div>
+        <nav>
+            <a asp-page="/Index">Главная</a>
+            <a asp-page="/Dashboard">Доска заявок</a>
+            <a asp-page="/Requests">Заявки</a>
+            <a asp-page="/Access">Доступ</a>
+            <a asp-page="/Support">Техподдержка</a>
+            @if (User.IsInRole("admin"))
+            {
+                <a asp-page="/Users">Пользователи</a>
+            }
+        </nav>
+
+        <div class="user-panel">
+            <span>@(User.Identity?.Name ?? "user")</span>
+            <form method="post" asp-page="/Login" asp-page-handler="Logout">
+                <button type="submit">Выйти</button>
+            </form>
+        </div>
+    </div>
+</header>
+<main>
+    @RenderBody()
+</main>
+</body>
+</html>

@@ -1,0 +1,129 @@
+@page
+@model WebPanel.Pages.RequestsModel
+@{
+    ViewData["Title"] = "Заявки";
+}
+
+<h1>Заявки</h1>
+@if (!Model.IsAdmin)
+{
+    <p class="muted">Режим просмотра: оператор не может менять статусы заявок.</p>
+}
+
+@if (!string.IsNullOrWhiteSpace(Model.FlashMessage))
+{
+    <p class="flash">@Model.FlashMessage</p>
+}
+
+<section class="card">
+    <h2>Создать новую заявку</h2>
+    <p class="muted">Заявка сразу записывается в Excel, откуда ее читает бот и сайт.</p>
+    <form method="post" asp-page-handler="CreateRequest" class="support-form">
+        <input type="hidden" name="category" value="@Model.Category" />
+        <label>
+            Кто передал
+            <input asp-for="NewReporter" placeholder="ФИО/позывной" />
+        </label>
+        <label>
+            Подразделение
+            <input asp-for="NewUnit" placeholder="Например: 3 рота" />
+        </label>
+        <label>
+            Описание
+            <textarea asp-for="NewDescription" rows="3" placeholder="Что требуется"></textarea>
+        </label>
+        <label>
+            Количество
+            <input asp-for="NewQuantity" placeholder="1" />
+        </label>
+        <label>
+            Примечание
+            <input asp-for="NewNote" placeholder="Комментарий" />
+        </label>
+        <button type="submit">Создать заявку</button>
+    </form>
+</section>
+
+<form method="get" class="filters card">
+    <label>
+        Категория
+        <select name="Category">
+            <option value="drone" selected="@(Model.Category == "drone" ? "selected" : null)">Заявки на дроны</option>
+            <option value="repair" selected="@(Model.Category == "repair" ? "selected" : null)">Заявки на ремонт</option>
+            <option value="consumables" selected="@(Model.Category == "consumables" ? "selected" : null)">Заявки на комплектующие</option>
+        </select>
+    </label>
+
+    <label>
+        Статус
+        <select name="Status">
+            <option value="active" selected="@(Model.Status == "active" ? "selected" : null)">Активные</option>
+            <option value="completed" selected="@(Model.Status == "completed" ? "selected" : null)">Завершенные</option>
+        </select>
+    </label>
+
+    <label class="grow">
+        Поиск
+        <input type="text" name="Query" value="@Model.Query" placeholder="ID, автор, подразделение, описание..." />
+    </label>
+
+    <button type="submit">Показать</button>
+</form>
+
+<section class="card">
+    <div class="section-title">
+        <h2>Найдено: @Model.Requests.Count</h2>
+    </div>
+
+    @if (Model.Requests.Count == 0)
+    {
+        <p class="muted">Нет заявок по выбранному фильтру.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Дата</th>
+                    <th>Кто передал</th>
+                    <th>Подразделение</th>
+                    <th>Описание</th>
+                    <th>Примечание</th>
+                    <th>Статус</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var request in Model.Requests)
+                {
+                    <tr>
+                        <td>#@request.Id</td>
+                        <td>@request.Date</td>
+                        <td>@request.Reporter</td>
+                        <td>@request.Unit</td>
+                        <td>@request.Description</td>
+                        <td>@request.Note</td>
+                        <td><span class="tag @(request.Status == "completed" ? "tag-done" : "tag-open")">@request.Status</span></td>
+                        <td>
+                            @if (Model.IsAdmin)
+                            {
+                                <form method="post" asp-page-handler="ToggleStatus" class="action-inline">
+                                    <input type="hidden" name="id" value="@request.Id" />
+                                    <input type="hidden" name="category" value="@Model.Category" />
+                                    <input type="hidden" name="status" value="@Model.Status" />
+                                    <input type="hidden" name="query" value="@Model.Query" />
+                                    <button type="submit">@(request.Status == "completed" ? "Вернуть в активные" : "Завершить")</button>
+                                </form>
+                            }
+                            else
+                            {
+                                <span class="muted">Только просмотр</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>

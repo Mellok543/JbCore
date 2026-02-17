@@ -1,0 +1,132 @@
+@page
+@model WebPanel.Pages.AccessModel
+@{
+    ViewData["Title"] = "Управление доступом";
+}
+
+<h1>Управление доступом</h1>
+@if (!Model.IsAdmin)
+{
+    <p class="muted">Режим просмотра: только администратор может менять права и модерировать рекомендации.</p>
+}
+
+
+@if (!string.IsNullOrWhiteSpace(Model.FlashMessage))
+{
+    <p class="flash">@Model.FlashMessage</p>
+}
+
+<section class="card">
+    <h2>Рекомендации (ожидают модерации)</h2>
+
+    @if (Model.PendingRecommendations.Count == 0)
+    {
+        <p class="muted">Новых рекомендаций нет.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Дата</th>
+                    <th>Рекомендовал</th>
+                    <th>Кандидат username</th>
+                    <th>Комментарий</th>
+                    <th>Действие</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var recommendation in Model.PendingRecommendations)
+            {
+                <tr>
+                    <td>#@recommendation.Id</td>
+                    <td>@recommendation.Date</td>
+                    <td>@recommendation.Recommender</td>
+                    <td>@recommendation.RecommendedUsername</td>
+                    <td>@recommendation.Note</td>
+                    <td>
+                        @if (Model.IsAdmin)
+                        {
+                            <form method="post" class="action-inline">
+                                <input type="hidden" name="id" value="@recommendation.Id" />
+                                <button type="submit" name="action" value="accept" class="ok">Принять</button>
+                                <button type="submit" name="action" value="reject" class="danger">Отклонить</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <span class="muted">Только просмотр</span>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</section>
+
+<section class="card">
+    <h2>Пользователи и права</h2>
+    <p class="muted">Таблица прав: /opt/repairbot/tables/access_users.xlsx</p>
+
+    @if (Model.Users.Count == 0)
+    {
+        <p class="muted">В таблице пользователей пока нет записей.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+            <tr>
+                <th>User ID</th>
+                <th>Username</th>
+                <th>Display Name</th>
+                <th>Доступ к боту</th>
+                <th>Завершение заявок</th>
+                <th>Управление доступом</th>
+                <th>Уведомления заявок</th>
+                <th>Уведомления рекомендаций</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var user in Model.Users)
+            {
+                var formId = $"user-form-{user.UserId}";
+                <tr>
+                    <td>
+                        @user.UserId
+                        <form id="@formId" method="post" asp-page-handler="SaveUser">
+                            <input type="hidden" name="userId" value="@user.UserId" />
+                            <input type="hidden" name="canUseBot" value="false" />
+                            <input type="hidden" name="canComplete" value="false" />
+                            <input type="hidden" name="canManageAccess" value="false" />
+                            <input type="hidden" name="notifyRequests" value="false" />
+                            <input type="hidden" name="notifyRecommendations" value="false" />
+                        </form>
+                    </td>
+                    <td>@(string.IsNullOrWhiteSpace(user.Username) ? "-" : user.Username)</td>
+                    <td>@(string.IsNullOrWhiteSpace(user.DisplayName) ? "-" : user.DisplayName)</td>
+                    <td>
+                        <input type="checkbox" name="canUseBot" value="true" form="@formId" checked="@user.CanUseBot" @(Model.IsAdmin ? null : "disabled") />
+                    </td>
+                    <td>
+                        <input type="checkbox" name="canComplete" value="true" form="@formId" checked="@user.CanComplete" @(Model.IsAdmin ? null : "disabled") />
+                    </td>
+                    <td>
+                        <input type="checkbox" name="canManageAccess" value="true" form="@formId" checked="@user.CanManageAccess" @(Model.IsAdmin ? null : "disabled") />
+                    </td>
+                    <td>
+                        <input type="checkbox" name="notifyRequests" value="true" form="@formId" checked="@user.NotifyRequests" @(Model.IsAdmin ? null : "disabled") />
+                    </td>
+                    <td>
+                        <input type="checkbox" name="notifyRecommendations" value="true" form="@formId" checked="@user.NotifyRecommendations" @(Model.IsAdmin ? null : "disabled") />
+                    </td>
+                    <td>@if (Model.IsAdmin) { <button type="submit" form="@formId">Сохранить</button> } else { <span class="muted">—</span> }</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</section>

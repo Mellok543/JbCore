@@ -1,0 +1,43 @@
+@page
+@model WebPanel.Pages.LoginModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Вход";
+}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - RepairBot WebPanel</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+<main class="login-wrap">
+    <section class="card login-card">
+        <h1>Вход в WebPanel</h1>
+        <p class="muted">Авторизация обязательна для доступа к панели управления.</p>
+
+        @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+        {
+            <p class="flash">@Model.ErrorMessage</p>
+        }
+
+        <form method="post" class="support-form">
+            <label>
+                Логин
+                <input asp-for="Username" autocomplete="username" />
+            </label>
+
+            <label>
+                Пароль
+                <input asp-for="Password" type="password" autocomplete="current-password" />
+            </label>
+
+            <button type="submit">Войти</button>
+        </form>
+    </section>
+</main>
+</body>
+</html>

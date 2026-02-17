@@ -1,0 +1,90 @@
+@page
+@model WebPanel.Pages.SupportModel
+@{
+    ViewData["Title"] = "Техподдержка";
+}
+
+<h1>Техподдержка</h1>
+@if (!Model.IsAdmin)
+{
+    <p class="muted">Оператор может создавать обращения. Менять статусы может только администратор.</p>
+}
+<p class="muted">Оставьте обращение прямо из WebPanel. Оно сохранится в `support.xlsx`, а при включенной интеграции придет уведомление в Telegram.</p>
+
+@if (!string.IsNullOrWhiteSpace(Model.FlashMessage))
+{
+    <p class="flash">@Model.FlashMessage</p>
+}
+
+<section class="card">
+    <h2>Новое обращение</h2>
+    <form method="post" asp-page-handler="Create" class="support-form">
+        <label>
+            Тема
+            <input type="text" asp-for="Topic" maxlength="120" placeholder="Например: Проблема с отображением заявок" />
+        </label>
+
+        <label>
+            Описание
+            <textarea asp-for="Details" rows="5" placeholder="Опишите проблему подробнее..."></textarea>
+        </label>
+
+        <button type="submit">Создать обращение</button>
+    </form>
+</section>
+
+<section class="card">
+    <h2>Последние обращения</h2>
+
+    @if (Model.Tickets.Count == 0)
+    {
+        <p class="muted">Обращений пока нет.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Дата</th>
+                <th>Автор</th>
+                <th>Тема</th>
+                <th>Описание</th>
+                <th>Статус</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var ticket in Model.Tickets)
+            {
+                <tr>
+                    <td>#@ticket.Id</td>
+                    <td>@ticket.Date</td>
+                    <td>@ticket.Author</td>
+                    <td>@ticket.Topic</td>
+                    <td>@ticket.Details</td>
+                    <td><span class="tag @(ticket.Status == "closed" ? "tag-done" : "tag-open")">@ticket.Status</span></td>
+                    <td>
+                        @if (Model.IsAdmin)
+                        {
+                            <form method="post" asp-page-handler="SetStatus" class="action-inline">
+                                <input type="hidden" name="id" value="@ticket.Id" />
+                                <select name="status">
+                                    <option value="open" selected="@(ticket.Status == "open" ? "selected" : null)">open</option>
+                                    <option value="in_progress" selected="@(ticket.Status == "in_progress" ? "selected" : null)">in_progress</option>
+                                    <option value="closed" selected="@(ticket.Status == "closed" ? "selected" : null)">closed</option>
+                                </select>
+                                <button type="submit">Обновить</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <span class="muted">Только просмотр</span>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</section>
