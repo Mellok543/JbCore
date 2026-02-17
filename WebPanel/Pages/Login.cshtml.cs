@@ -4,13 +4,12 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.Extensions.Options;
 using WebPanel.Services;
 
 namespace WebPanel.Pages;
 
 [AllowAnonymous]
-public sealed class LoginModel(IOptions<AuthOptions> authOptions) : PageModel
+public sealed class LoginModel(IAuthService authService) : PageModel
 {
     [BindProperty]
     public string Username { get; set; } = string.Empty;
@@ -32,21 +31,19 @@ public sealed class LoginModel(IOptions<AuthOptions> authOptions) : PageModel
 
     public async Task<IActionResult> OnPostAsync(string? returnUrl = null)
     {
-        var user = authOptions.Value.Users.FirstOrDefault(x =>
-            string.Equals(x.Username, Username, StringComparison.OrdinalIgnoreCase) &&
-            x.Password == Password);
+        var result = authService.ValidateCredentials(Username, Password);
 
-        if (user is null)
+        if (!result.Success || result.User is null)
         {
-            ErrorMessage = "Неверный логин или пароль.";
+            ErrorMessage = result.Message;
             return Page();
         }
 
         var claims = new List<Claim>
         {
-            new(ClaimTypes.Name, string.IsNullOrWhiteSpace(user.DisplayName) ? user.Username : user.DisplayName),
-            new(ClaimTypes.NameIdentifier, user.Username),
-            new(ClaimTypes.Role, string.IsNullOrWhiteSpace(user.Role) ? "operator" : user.Role)
+            new(ClaimTypes.Name, string.IsNullOrWhiteSpace(result.User.DisplayName) ? result.User.Username : result.User.DisplayName),
+            new(ClaimTypes.NameIdentifier, result.User.Username),
+            new(ClaimTypes.Role, string.IsNullOrWhiteSpace(result.User.Role) ? "operator" : result.User.Role)
         };
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

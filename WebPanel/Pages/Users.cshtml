@@ -1,0 +1,75 @@
+@page
+@model WebPanel.Pages.UsersModel
+@{
+    ViewData["Title"] = "Пользователи сайта";
+}
+
+<h1>Пользователи сайта</h1>
+<p class="muted">Создавайте личные аккаунты для участников команды.</p>
+
+@if (!string.IsNullOrWhiteSpace(Model.FlashMessage))
+{
+    <p class="flash">@Model.FlashMessage</p>
+}
+
+<section class="card">
+    <h2>Создать пользователя</h2>
+    <form method="post" asp-page-handler="Create" class="support-form">
+        <label>
+            Логин
+            <input asp-for="Username" placeholder="например: ivan.drone" />
+        </label>
+
+        <label>
+            Пароль
+            <input asp-for="Password" type="password" placeholder="не менее 6 символов" />
+        </label>
+
+        <label>
+            Отображаемое имя
+            <input asp-for="DisplayName" placeholder="Иван Петров" />
+        </label>
+
+        <label>
+            Роль
+            <select asp-for="Role">
+                <option value="operator">operator</option>
+                <option value="admin">admin</option>
+            </select>
+        </label>
+
+        <button type="submit">Создать аккаунт</button>
+    </form>
+</section>
+
+<section class="card">
+    <h2>Существующие пользователи</h2>
+    @if (Model.Users.Count == 0)
+    {
+        <p class="muted">Пользователей пока нет.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+            <tr>
+                <th>Логин</th>
+                <th>Имя</th>
+                <th>Роль</th>
+                <th>Создан</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var user in Model.Users)
+            {
+                <tr>
+                    <td>@user.Username</td>
+                    <td>@user.DisplayName</td>
+                    <td><span class="tag @(user.Role == "admin" ? "tag-open" : "tag-done")">@user.Role</span></td>
+                    <td>@user.CreatedAt</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</section>

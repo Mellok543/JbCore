@@ -13,7 +13,10 @@ builder.Services
         options.SlidingExpiration = true;
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin"));
+});
 builder.Services.AddHttpContextAccessor();
 
 builder.Services
@@ -21,11 +24,13 @@ builder.Services
     {
         options.Conventions.AuthorizeFolder("/");
         options.Conventions.AllowAnonymousToPage("/Login");
+        options.Conventions.AuthorizePage("/Users", "AdminOnly");
     });
 
 builder.Services.Configure<ExcelSyncOptions>(builder.Configuration.GetSection(ExcelSyncOptions.SectionName));
 builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.SectionName));
 builder.Services.AddScoped<IAdminDataService, ExcelAdminDataService>();
+builder.Services.AddSingleton<IAuthService, ExcelAuthService>();
 
 var app = builder.Build();
 
@@ -56,7 +61,8 @@ app.MapGet("/api/roadmap", () => Results.Ok(new[]
     "Recommendations moderation",
     "Access/roles management",
     "Support tickets",
-    "Cookie authentication"
+    "Cookie authentication",
+    "Site user management"
 })).RequireAuthorization();
 
 app.MapGet("/api/dashboard", (IAdminDataService service) => Results.Ok(service.GetDashboard())).RequireAuthorization();

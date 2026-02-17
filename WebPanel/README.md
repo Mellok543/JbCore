@@ -1,6 +1,6 @@
 # WebPanel
 
-WebPanel — веб-интерфейс для администрирования Telegram-бота.
+WebPanel — закрытый веб-интерфейс команды по дронам и микроэлектронике.
 
 ## Выбранный режим синхронизации
 Проект работает в режиме **single source of truth = Excel**:
@@ -10,14 +10,15 @@ WebPanel — веб-интерфейс для администрирования
 
 ## Что есть в WebPanel сейчас
 - Авторизация пользователей (cookie login).
+- Создание пользователей сайта прямо из интерфейса (страница `/Users`, только для admin).
 - Дашборд по 3 категориям заявок (активные/завершённые).
-- Список заявок с фильтрами (категория, статус), поиском и сменой статуса (активная/завершённая).
+- Список заявок с фильтрами (категория, статус), поиском и сменой статуса.
 - Управление доступом (модерация рекомендаций + редактирование матрицы прав пользователей).
 - Техподдержка: создание обращений, просмотр и смена статуса тикетов (`support.xlsx`).
 
 ## Конфигурация
-Настройки файлов:
 
+### Excel-файлы
 - `ExcelSync:TablesDirectory`
 - `ExcelSync:ApplicationsFileName`
 - `ExcelSync:RepairsFileName`
@@ -25,47 +26,27 @@ WebPanel — веб-интерфейс для администрирования
 - `ExcelSync:AccessFileName`
 - `ExcelSync:SupportFileName`
 
-Пример:
+### Авторизация
+WebPanel хранит пользователей сайта в Excel-файле `Auth:UsersFileName` (по умолчанию `site_users.xlsx`).
 
-```json
-{
-  "ExcelSync": {
-    "TablesDirectory": "../data",
-    "ApplicationsFileName": "applications.xlsx",
-    "RepairsFileName": "repairs.xlsx",
-    "ConsumablesFileName": "consumables.xlsx",
-    "AccessFileName": "access_users.xlsx",
-    "SupportFileName": "support.xlsx"
-  }
-}
-```
+Параметры bootstrap-админа:
+- `Auth:BootstrapAdminUsername`
+- `Auth:BootstrapAdminPassword`
+- `Auth:BootstrapAdminDisplayName`
 
-## Авторизация
-WebPanel использует cookie-авторизацию.
+При первом запуске bootstrap-admin добавляется автоматически в `site_users.xlsx`.
+**Обязательно смените дефолтный пароль `change_me` перед production-запуском.**
 
-1. В `appsettings.json` задайте пользователей в секции `Auth:Users`.
-2. При первом запуске обязательно смените пароль `change_me`.
-3. После запуска откройте `/Login` и войдите под учетной записью из конфигурации.
-
-Пример:
-
-```json
-"Auth": {
-  "Users": [
-    {
-      "Username": "admin",
-      "Password": "very_strong_password",
-      "DisplayName": "Administrator",
-      "Role": "admin"
-    }
-  ]
-}
-```
+## Как выдавать доступ к сайту
+1. Войдите под админом.
+2. Откройте страницу **Пользователи** (`/Users`).
+3. Создайте персональный логин/пароль для участника.
+4. Передайте человеку его личные данные для входа.
 
 ## API
 - `GET /api/health` → `storage = "excel"`
-- `GET /api/dashboard`
-- `POST /api/sync/excel-to-db` → no-op (оставлен для обратной совместимости)
+- `GET /api/dashboard` (требует авторизацию)
+- `POST /api/sync/excel-to-db` (требует авторизацию, no-op)
 
 ## Если на сайте нет данных
 1. Проверьте путь `ExcelSync:TablesDirectory`.
