@@ -5,6 +5,10 @@
 }
 
 <h1>Техподдержка</h1>
+@if (!Model.IsAdmin)
+{
+    <p class="muted">Режим просмотра: создавать и менять статусы обращений может только администратор.</p>
+}
 <p class="muted">Оставьте обращение прямо из WebPanel. Оно сохранится в `support.xlsx`.</p>
 
 @if (!string.IsNullOrWhiteSpace(Model.FlashMessage))
@@ -17,15 +21,15 @@
     <form method="post" asp-page-handler="Create" class="support-form">
         <label>
             Тема
-            <input type="text" asp-for="Topic" maxlength="120" placeholder="Например: Проблема с отображением заявок" />
+            <input type="text" asp-for="Topic" maxlength="120" placeholder="Например: Проблема с отображением заявок" disabled="@(!Model.IsAdmin)" />
         </label>
 
         <label>
             Описание
-            <textarea asp-for="Details" rows="5" placeholder="Опишите проблему подробнее..."></textarea>
+            <textarea asp-for="Details" rows="5" placeholder="Опишите проблему подробнее..." disabled="@(!Model.IsAdmin)"></textarea>
         </label>
 
-        <button type="submit">Создать обращение</button>
+        @if (Model.IsAdmin) { <button type="submit">Создать обращение</button> }
     </form>
 </section>
 
@@ -61,15 +65,22 @@
                     <td>@ticket.Details</td>
                     <td><span class="tag @(ticket.Status == "closed" ? "tag-done" : "tag-open")">@ticket.Status</span></td>
                     <td>
-                        <form method="post" asp-page-handler="SetStatus" class="action-inline">
-                            <input type="hidden" name="id" value="@ticket.Id" />
-                            <select name="status">
-                                <option value="open" selected="@(ticket.Status == "open" ? "selected" : null)">open</option>
-                                <option value="in_progress" selected="@(ticket.Status == "in_progress" ? "selected" : null)">in_progress</option>
-                                <option value="closed" selected="@(ticket.Status == "closed" ? "selected" : null)">closed</option>
-                            </select>
-                            <button type="submit">Обновить</button>
-                        </form>
+                        @if (Model.IsAdmin)
+                        {
+                            <form method="post" asp-page-handler="SetStatus" class="action-inline">
+                                <input type="hidden" name="id" value="@ticket.Id" />
+                                <select name="status">
+                                    <option value="open" selected="@(ticket.Status == "open" ? "selected" : null)">open</option>
+                                    <option value="in_progress" selected="@(ticket.Status == "in_progress" ? "selected" : null)">in_progress</option>
+                                    <option value="closed" selected="@(ticket.Status == "closed" ? "selected" : null)">closed</option>
+                                </select>
+                                <button type="submit">Обновить</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <span class="muted">Только просмотр</span>
+                        }
                     </td>
                 </tr>
             }

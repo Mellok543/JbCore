@@ -5,6 +5,10 @@
 }
 
 <h1>Заявки</h1>
+@if (!Model.IsAdmin)
+{
+    <p class="muted">Режим просмотра: оператор не может менять статусы заявок.</p>
+}
 
 @if (!string.IsNullOrWhiteSpace(Model.FlashMessage))
 {
@@ -73,13 +77,20 @@
                         <td>@request.Note</td>
                         <td><span class="tag @(request.Status == "completed" ? "tag-done" : "tag-open")">@request.Status</span></td>
                         <td>
-                            <form method="post" asp-page-handler="ToggleStatus" class="action-inline">
-                                <input type="hidden" name="id" value="@request.Id" />
-                                <input type="hidden" name="category" value="@Model.Category" />
-                                <input type="hidden" name="status" value="@Model.Status" />
-                                <input type="hidden" name="query" value="@Model.Query" />
-                                <button type="submit">@(request.Status == "completed" ? "Вернуть в активные" : "Завершить")</button>
-                            </form>
+                            @if (Model.IsAdmin)
+                            {
+                                <form method="post" asp-page-handler="ToggleStatus" class="action-inline">
+                                    <input type="hidden" name="id" value="@request.Id" />
+                                    <input type="hidden" name="category" value="@Model.Category" />
+                                    <input type="hidden" name="status" value="@Model.Status" />
+                                    <input type="hidden" name="query" value="@Model.Query" />
+                                    <button type="submit">@(request.Status == "completed" ? "Вернуть в активные" : "Завершить")</button>
+                                </form>
+                            }
+                            else
+                            {
+                                <span class="muted">Только просмотр</span>
+                            }
                         </td>
                     </tr>
                 }

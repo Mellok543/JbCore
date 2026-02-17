@@ -6,6 +6,7 @@ namespace WebPanel.Pages;
 
 public sealed class RequestsModel(IAdminDataService adminService) : PageModel
 {
+    public bool IsAdmin => User.IsInRole("admin");
     [BindProperty(SupportsGet = true)]
     public string Category { get; set; } = "drone";
 
@@ -44,6 +45,10 @@ public sealed class RequestsModel(IAdminDataService adminService) : PageModel
 
     public IActionResult OnPostToggleStatus(long id, string category, string status, string query)
     {
+        if (!User.IsInRole("admin"))
+        {
+            return Forbid();
+        }
         var normalizedCategory = NormalizeCategory(category);
         var completed = !string.Equals(status, "completed", StringComparison.OrdinalIgnoreCase);
         var result = adminService.UpdateRequestStatus(normalizedCategory, id, completed);

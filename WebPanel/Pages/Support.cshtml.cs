@@ -6,6 +6,7 @@ namespace WebPanel.Pages;
 
 public sealed class SupportModel(IAdminDataService adminService) : PageModel
 {
+    public bool IsAdmin => User.IsInRole("admin");
     public IReadOnlyList<SupportTicketVm> Tickets { get; private set; } = [];
 
     [BindProperty]
@@ -24,6 +25,10 @@ public sealed class SupportModel(IAdminDataService adminService) : PageModel
 
     public IActionResult OnPostCreate()
     {
+        if (!User.IsInRole("admin"))
+        {
+            return Forbid();
+        }
         var author = User?.Identity?.Name;
         if (string.IsNullOrWhiteSpace(author))
         {
@@ -37,6 +42,10 @@ public sealed class SupportModel(IAdminDataService adminService) : PageModel
 
     public IActionResult OnPostSetStatus(long id, string status)
     {
+        if (!User.IsInRole("admin"))
+        {
+            return Forbid();
+        }
         var result = adminService.UpdateSupportTicketStatus(id, status);
         FlashMessage = result.Message;
         return RedirectToPage();

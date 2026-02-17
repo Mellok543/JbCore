@@ -5,6 +5,11 @@
 }
 
 <h1>Управление доступом</h1>
+@if (!Model.IsAdmin)
+{
+    <p class="muted">Режим просмотра: только администратор может менять права и модерировать рекомендации.</p>
+}
+
 
 @if (!string.IsNullOrWhiteSpace(Model.FlashMessage))
 {
@@ -41,11 +46,18 @@
                     <td>@recommendation.RecommendedUsername</td>
                     <td>@recommendation.Note</td>
                     <td>
-                        <form method="post" class="action-inline">
-                            <input type="hidden" name="id" value="@recommendation.Id" />
-                            <button type="submit" name="action" value="accept" class="ok">Принять</button>
-                            <button type="submit" name="action" value="reject" class="danger">Отклонить</button>
-                        </form>
+                        @if (Model.IsAdmin)
+                        {
+                            <form method="post" class="action-inline">
+                                <input type="hidden" name="id" value="@recommendation.Id" />
+                                <button type="submit" name="action" value="accept" class="ok">Принять</button>
+                                <button type="submit" name="action" value="reject" class="danger">Отклонить</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <span class="muted">Только просмотр</span>
+                        }
                     </td>
                 </tr>
             }
@@ -90,12 +102,12 @@
                     </td>
                     <td>@(string.IsNullOrWhiteSpace(user.Username) ? "-" : user.Username)</td>
                     <td>@(string.IsNullOrWhiteSpace(user.DisplayName) ? "-" : user.DisplayName)</td>
-                    <td><input type="checkbox" name="canUseBot" form="@formId" checked="@user.CanUseBot" /></td>
-                    <td><input type="checkbox" name="canComplete" form="@formId" checked="@user.CanComplete" /></td>
-                    <td><input type="checkbox" name="canManageAccess" form="@formId" checked="@user.CanManageAccess" /></td>
-                    <td><input type="checkbox" name="notifyRequests" form="@formId" checked="@user.NotifyRequests" /></td>
-                    <td><input type="checkbox" name="notifyRecommendations" form="@formId" checked="@user.NotifyRecommendations" /></td>
-                    <td><button type="submit" form="@formId">Сохранить</button></td>
+                    <td><input type="checkbox" name="canUseBot" form="@formId" checked="@user.CanUseBot" disabled="@(!Model.IsAdmin)" /></td>
+                    <td><input type="checkbox" name="canComplete" form="@formId" checked="@user.CanComplete" disabled="@(!Model.IsAdmin)" /></td>
+                    <td><input type="checkbox" name="canManageAccess" form="@formId" checked="@user.CanManageAccess" disabled="@(!Model.IsAdmin)" /></td>
+                    <td><input type="checkbox" name="notifyRequests" form="@formId" checked="@user.NotifyRequests" disabled="@(!Model.IsAdmin)" /></td>
+                    <td><input type="checkbox" name="notifyRecommendations" form="@formId" checked="@user.NotifyRecommendations" disabled="@(!Model.IsAdmin)" /></td>
+                    <td>@if (Model.IsAdmin) { <button type="submit" form="@formId">Сохранить</button> } else { <span class="muted">—</span> }</td>
                 </tr>
             }
             </tbody>

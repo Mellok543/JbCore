@@ -193,6 +193,9 @@ public sealed class ExcelAdminDataService(IOptions<ExcelSyncOptions> options) : 
                 ws.Cell(r, 6).Value = notifyRequests ? "1" : "0";
                 ws.Cell(r, 7).Value = notifyRecommendations ? "1" : "0";
 
+                var username = ws.Cell(r, 9).GetString();
+                SetUsernameAccess(wb, username, canUseBot);
+
                 wb.SaveAs(path);
                 return new ReviewResultVm(true, "Права пользователя обновлены.");
             }
@@ -515,6 +518,46 @@ public sealed class ExcelAdminDataService(IOptions<ExcelSyncOptions> options) : 
         usernameWs.Cell(row, 3).Value = DateTime.Now.ToString("s");
     }
 
+
+
+    private static void SetUsernameAccess(IXLWorkbook wb, string usernameRaw, bool canUseBot)
+    {
+        var username = NormalizeUsername(usernameRaw);
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            return;
+        }
+
+        if (!wb.TryGetWorksheet("UsernameAccess", out var ws))
+        {
+            ws = wb.Worksheets.Add("UsernameAccess");
+            ws.Cell(1, 1).Value = "Username";
+            ws.Cell(1, 2).Value = "CanUseBot";
+            ws.Cell(1, 3).Value = "AddedAt";
+        }
+
+        var last = ws.LastRowUsed()?.RowNumber() ?? 1;
+        for (var r = 2; r <= last; r++)
+        {
+            if (!string.Equals(NormalizeUsername(ws.Cell(r, 1).GetString()), username, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            ws.Cell(r, 2).Value = canUseBot ? "1" : "0";
+            return;
+        }
+
+        if (!canUseBot)
+        {
+            return;
+        }
+
+        var row = last + 1;
+        ws.Cell(row, 1).Value = username;
+        ws.Cell(row, 2).Value = "1";
+        ws.Cell(row, 3).Value = DateTime.Now.ToString("s");
+    }
 
     private static IXLWorksheet EnsureSupportSheet(XLWorkbook wb)
     {
