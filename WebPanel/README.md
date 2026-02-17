@@ -79,3 +79,27 @@ sudo -u postgres psql -c "ALTER USER repairbot WITH PASSWORD 'НОВЫЙ_ПАР�
 ```
 
 После этого обновите пароль в env/appsettings и перезапустите `webpanel.service`.
+
+### Если видите `Npgsql.PostgresException: 28P01`
+Это точно ошибка логина/пароля PostgreSQL для пользователя `repairbot`.
+
+Проверьте строку подключения, которую реально видит сервис:
+
+```bash
+sudo systemctl cat webpanel | sed -n '1,200p'
+sudo cat /etc/repairbot/webpanel.env
+```
+
+Сбросьте пароль в PostgreSQL и укажите тот же пароль в `ConnectionStrings__Postgres`:
+
+```bash
+sudo -u postgres psql -c "ALTER USER repairbot WITH PASSWORD 'NEW_STRONG_PASSWORD';"
+sudo systemctl restart webpanel
+```
+
+Быстрая проверка авторизации этим же пользователем:
+
+```bash
+PGPASSWORD='NEW_STRONG_PASSWORD' psql -h 127.0.0.1 -p 5432 -U repairbot -d repairbot -c "select now();"
+```
+

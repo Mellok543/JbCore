@@ -1,3 +1,4 @@
+using Npgsql;
 using Microsoft.EntityFrameworkCore;
 using WebPanel.Data;
 using WebPanel.Services;
@@ -28,10 +29,24 @@ if (!app.Environment.IsDevelopment())
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AdminDbContext>();
-    db.Database.EnsureCreated();
 
-    db.Database.ExecuteSqlRaw("ALTER TABLE IF EXISTS requests ADD COLUMN IF NOT EXISTS external_id bigint");
-    db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS idx_requests_category_status ON requests (category, status)");
+    try
+    {
+        db.Database.EnsureCreated();
+        db.Database.ExecuteSqlRaw("ALTER TABLE IF EXISTS requests ADD COLUMN IF NOT EXISTS external_id bigint");
+        db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS idx_requests_category_status ON requests (category, status)");
+    }
+    catch (PostgresException ex) when (ex.SqlState == "28P01")
+    {
+        throw new InvalidOperationException(
+            "Не удалось подключиться к PostgreSQL: ошибка авторизации пользователя/пароля (28P01). " +
+            "Проверьте ConnectionStrings:Postgres или env ConnectionStrings__Postgres, затем перезапустите WebPanel.", ex);
+    }
+    catch (NpgsqlException ex)
+    {
+        throw new InvalidOperationException(
+            "Не удалось подключиться к PostgreSQL. Проверьте, что сервер доступен и строка подключения корректна.", ex);
+    }
 }
 
 if (builder.Configuration.GetValue<bool>("ExcelSync:RunOnStartup"))
