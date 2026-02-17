@@ -24,11 +24,18 @@
         </select>
     </label>
 
+    <label class="grow">
+        Поиск
+        <input type="text" name="Query" value="@Model.Query" placeholder="ID, автор, подразделение, описание..." />
+    </label>
+
     <button type="submit">Показать</button>
 </form>
 
 <section class="card">
-    <h2>Найдено: @Model.Requests.Count</h2>
+    <div class="section-title">
+        <h2>Найдено: @Model.Requests.Count</h2>
+    </div>
 
     @if (Model.Requests.Count == 0)
     {
@@ -58,7 +65,7 @@
                         <td>@request.Unit</td>
                         <td>@request.Description</td>
                         <td>@request.Note</td>
-                        <td>@request.Status</td>
+                        <td><span class="tag @(request.Status == "completed" ? "tag-done" : "tag-open")">@request.Status</span></td>
                     </tr>
                 }
             </tbody>

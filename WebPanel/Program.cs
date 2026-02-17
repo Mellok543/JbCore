@@ -31,7 +31,8 @@ app.MapGet("/api/roadmap", () => Results.Ok(new[]
     "Single source storage: Excel",
     "Dashboard (active/completed requests)",
     "Recommendations moderation",
-    "Access/roles management"
+    "Access/roles management",
+    "Support tickets"
 }));
 
 app.MapGet("/api/dashboard", (IAdminDataService service) => Results.Ok(service.GetDashboard()));

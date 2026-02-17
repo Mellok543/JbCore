@@ -3,21 +3,26 @@
 WebPanel — веб-интерфейс для администрирования Telegram-бота.
 
 ## Выбранный режим синхронизации
-Проект переведён в **single source of truth = Excel**:
+Проект работает в режиме **single source of truth = Excel**:
 - бот пишет в Excel,
-- WebPanel читает напрямую те же Excel-файлы,
-- промежуточная синхронизация в PostgreSQL не используется.
+- WebPanel читает/обновляет те же Excel-файлы,
+- синхронизация через PostgreSQL отключена.
 
-Это убирает рассинхрон и сложности деплоя БД.
+## Что есть в WebPanel сейчас
+- Дашборд по 3 категориям заявок (активные/завершённые).
+- Список заявок с фильтрами (категория, статус) и поиском по ID/автору/подразделению/тексту.
+- Управление доступом (модерация рекомендаций + просмотр матрицы прав).
+- Техподдержка: создание обращений и просмотр последних тикетов (`support.xlsx`).
 
 ## Конфигурация
-Настройки Excel-файлов:
+Настройки файлов:
 
 - `ExcelSync:TablesDirectory`
 - `ExcelSync:ApplicationsFileName`
 - `ExcelSync:RepairsFileName`
 - `ExcelSync:ConsumablesFileName`
 - `ExcelSync:AccessFileName`
+- `ExcelSync:SupportFileName`
 
 Пример:
 
@@ -28,7 +33,8 @@ WebPanel — веб-интерфейс для администрирования
     "ApplicationsFileName": "applications.xlsx",
     "RepairsFileName": "repairs.xlsx",
     "ConsumablesFileName": "consumables.xlsx",
-    "AccessFileName": "access_users.xlsx"
+    "AccessFileName": "access_users.xlsx",
+    "SupportFileName": "support.xlsx"
   }
 }
 ```
@@ -36,16 +42,16 @@ WebPanel — веб-интерфейс для администрирования
 ## API
 - `GET /api/health` → `storage = "excel"`
 - `GET /api/dashboard`
-- `POST /api/sync/excel-to-db` → no-op (оставлен для обратной совместимости с ботом)
+- `POST /api/sync/excel-to-db` → no-op (оставлен для обратной совместимости)
 
 ## Если на сайте нет данных
 1. Проверьте путь `ExcelSync:TablesDirectory`.
 2. Убедитесь, что файлы существуют в этой папке.
-3. Проверьте права на чтение у пользователя, под которым запущен `webpanel.service`.
-4. Выполните:
+3. Проверьте права на чтение/запись у пользователя `webpanel.service`.
+4. Проверьте health:
 
 ```bash
 curl -s http://127.0.0.1:8080/api/health
 ```
 
-и убедитесь, что `storage` = `excel`.
+Ожидаемо: `storage = excel`.

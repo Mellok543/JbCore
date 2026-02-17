@@ -112,6 +112,73 @@ public sealed class ExcelAdminDataService(IOptions<ExcelSyncOptions> options) : 
         }
     }
 
+
+    public IReadOnlyList<SupportTicketVm> GetSupportTickets(int take = 50)
+    {
+        lock (_sync)
+        {
+            var path = Path.Combine(GetTablesDir(), _options.SupportFileName);
+            if (!File.Exists(path))
+            {
+                return [];
+            }
+
+            using var wb = new XLWorkbook(path);
+            if (!wb.TryGetWorksheet("Support", out var ws))
+            {
+                return [];
+            }
+
+            var result = new List<SupportTicketVm>();
+            var last = ws.LastRowUsed()?.RowNumber() ?? 1;
+            for (var r = 2; r <= last; r++)
+            {
+                if (!long.TryParse(ws.Cell(r, 1).GetString(), out var id))
+                {
+                    continue;
+                }
+
+                result.Add(new SupportTicketVm(
+                    id,
+                    ws.Cell(r, 2).GetString(),
+                    ws.Cell(r, 3).GetString(),
+                    ws.Cell(r, 4).GetString(),
+                    ws.Cell(r, 5).GetString(),
+                    string.IsNullOrWhiteSpace(ws.Cell(r, 6).GetString()) ? "open" : ws.Cell(r, 6).GetString()));
+            }
+
+            return result.OrderByDescending(x => x.Id).Take(take).ToList();
+        }
+    }
+
+    public ReviewResultVm AddSupportTicket(string author, string topic, string details)
+    {
+        if (string.IsNullOrWhiteSpace(topic) || string.IsNullOrWhiteSpace(details))
+        {
+            return new ReviewResultVm(false, "Тема и описание обращения обязательны.");
+        }
+
+        lock (_sync)
+        {
+            var path = Path.Combine(GetTablesDir(), _options.SupportFileName);
+            EnsureDirectory(path);
+            using var wb = File.Exists(path) ? new XLWorkbook(path) : new XLWorkbook();
+            var ws = EnsureSupportSheet(wb);
+
+            var nextId = NextSupportId(ws);
+            var row = ws.LastRowUsed()?.RowNumber() + 1 ?? 2;
+            ws.Cell(row, 1).Value = nextId;
+            ws.Cell(row, 2).Value = DateTime.Now.ToString("s");
+            ws.Cell(row, 3).Value = string.IsNullOrWhiteSpace(author) ? "webpanel" : author;
+            ws.Cell(row, 4).Value = topic.Trim();
+            ws.Cell(row, 5).Value = details.Trim();
+            ws.Cell(row, 6).Value = "open";
+
+            wb.SaveAs(path);
+            return new ReviewResultVm(true, $"Обращение #{nextId} создано.");
+        }
+    }
+
     public ReviewResultVm ReviewRecommendation(long recommendationId, bool accept, string reviewer)
     {
         lock (_sync)
@@ -317,6 +384,48 @@ public sealed class ExcelAdminDataService(IOptions<ExcelSyncOptions> options) : 
         usernameWs.Cell(row, 1).Value = username;
         usernameWs.Cell(row, 2).Value = "1";
         usernameWs.Cell(row, 3).Value = DateTime.Now.ToString("s");
+    }
+
+
+    private static IXLWorksheet EnsureSupportSheet(XLWorkbook wb)
+    {
+        if (!wb.TryGetWorksheet("Support", out var ws))
+        {
+            ws = wb.Worksheets.Add("Support");
+        }
+
+        ws.Cell(1, 1).Value = "ID";
+        ws.Cell(1, 2).Value = "Дата";
+        ws.Cell(1, 3).Value = "Автор";
+        ws.Cell(1, 4).Value = "Тема";
+        ws.Cell(1, 5).Value = "Описание";
+        ws.Cell(1, 6).Value = "Статус";
+        ws.Range(1, 1, 1, 6).Style.Font.Bold = true;
+        return ws;
+    }
+
+    private static long NextSupportId(IXLWorksheet ws)
+    {
+        var last = ws.LastRowUsed()?.RowNumber() ?? 1;
+        long max = 0;
+        for (var r = 2; r <= last; r++)
+        {
+            if (long.TryParse(ws.Cell(r, 1).GetString(), out var id) && id > max)
+            {
+                max = id;
+            }
+        }
+
+        return max + 1;
+    }
+
+    private static void EnsureDirectory(string filePath)
+    {
+        var dir = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrWhiteSpace(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
     }
 
     private static string NormalizeUsername(string username)

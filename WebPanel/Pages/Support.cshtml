@@ -1,7 +1,67 @@
 @page
+@model WebPanel.Pages.SupportModel
 @{
     ViewData["Title"] = "Техподдержка";
 }
 
 <h1>Техподдержка</h1>
-<p>MVP-раздел. Следующий шаг — добавить тикеты и историю обращений.</p>
+<p class="muted">Оставьте обращение прямо из WebPanel. Оно сохранится в `support.xlsx`.</p>
+
+@if (!string.IsNullOrWhiteSpace(Model.FlashMessage))
+{
+    <p class="flash">@Model.FlashMessage</p>
+}
+
+<section class="card">
+    <h2>Новое обращение</h2>
+    <form method="post" asp-page-handler="Create" class="support-form">
+        <label>
+            Тема
+            <input type="text" asp-for="Topic" maxlength="120" placeholder="Например: Проблема с отображением заявок" />
+        </label>
+
+        <label>
+            Описание
+            <textarea asp-for="Details" rows="5" placeholder="Опишите проблему подробнее..."></textarea>
+        </label>
+
+        <button type="submit">Создать обращение</button>
+    </form>
+</section>
+
+<section class="card">
+    <h2>Последние обращения</h2>
+
+    @if (Model.Tickets.Count == 0)
+    {
+        <p class="muted">Обращений пока нет.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Дата</th>
+                <th>Автор</th>
+                <th>Тема</th>
+                <th>Описание</th>
+                <th>Статус</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var ticket in Model.Tickets)
+            {
+                <tr>
+                    <td>#@ticket.Id</td>
+                    <td>@ticket.Date</td>
+                    <td>@ticket.Author</td>
+                    <td>@ticket.Topic</td>
+                    <td>@ticket.Details</td>
+                    <td><span class="tag tag-open">@ticket.Status</span></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</section>

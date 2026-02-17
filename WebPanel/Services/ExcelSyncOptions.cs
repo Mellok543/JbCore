@@ -10,4 +10,5 @@ public sealed class ExcelSyncOptions
     public string RepairsFileName { get; init; } = "repairs.xlsx";
     public string ConsumablesFileName { get; init; } = "consumables.xlsx";
     public string AccessFileName { get; init; } = "access_users.xlsx";
+    public string SupportFileName { get; init; } = "support.xlsx";
 }

@@ -43,4 +43,13 @@ public sealed record RecommendationVm(
     string ReviewedBy
 );
 
+public sealed record SupportTicketVm(
+    long Id,
+    string Date,
+    string Author,
+    string Topic,
+    string Details,
+    string Status
+);
+
 public sealed record ReviewResultVm(bool Success, string Message);
