@@ -19,7 +19,7 @@ WebPanel — закрытый веб-интерфейс команды по др
 ## Конфигурация
 
 ### Excel-файлы
-- `ExcelSync:TablesDirectory`
+- `ExcelSync:TablesDirectory` (рекомендуемый путь: `/opt/repairbot/tables`)
 - `ExcelSync:ApplicationsFileName`
 - `ExcelSync:RepairsFileName`
 - `ExcelSync:ConsumablesFileName`
@@ -47,13 +47,24 @@ WebPanel хранит пользователей сайта в Excel-файле 
 3. Создайте персональный логин/пароль для участника.
 4. Передайте человеку его личные данные для входа.
 
+
+## Уведомления в Telegram
+Для новых обращений техподдержки можно включить отправку уведомлений в Telegram.
+
+Параметры в `appsettings.json`:
+- `TelegramNotifications:Enabled`
+- `TelegramNotifications:BotToken`
+- `TelegramNotifications:ChatIds` (список через запятую, например `-100123,-100456`)
+
+При создании обращения из WebPanel отправляется сообщение в указанные чаты.
+
 ## API
 - `GET /api/health` → `storage = "excel"`
 - `GET /api/dashboard` (требует авторизацию)
 - `POST /api/sync/excel-to-db` (требует авторизацию, no-op)
 
 ## Если на сайте нет данных
-1. Проверьте путь `ExcelSync:TablesDirectory`.
+1. Проверьте путь `ExcelSync:TablesDirectory` (должен быть `/opt/repairbot/tables`).
 2. Убедитесь, что файлы существуют в этой папке.
 3. Проверьте права на чтение/запись у пользователя `webpanel.service`.
 4. Проверьте health:

@@ -1,10 +1,11 @@
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using WebPanel.Services;
 
 namespace WebPanel.Pages;
 
-public sealed class SupportModel(IAdminDataService adminService) : PageModel
+public sealed class SupportModel(IAdminDataService adminService, ITelegramNotifier telegramNotifier) : PageModel
 {
     public bool IsAdmin => User.IsInRole("admin");
     public IReadOnlyList<SupportTicketVm> Tickets { get; private set; } = [];
@@ -23,7 +24,7 @@ public sealed class SupportModel(IAdminDataService adminService) : PageModel
         Tickets = adminService.GetSupportTickets(30);
     }
 
-    public IActionResult OnPostCreate()
+    public async Task<IActionResult> OnPostCreate()
     {
         if (!User.IsInRole("admin"))
         {
@@ -36,6 +37,12 @@ public sealed class SupportModel(IAdminDataService adminService) : PageModel
         }
 
         var result = adminService.AddSupportTicket(author, Topic, Details);
+        if (result.Success)
+        {
+            var ticketId = ExtractTicketId(result.Message);
+            await telegramNotifier.NotifySupportTicketAsync(ticketId, author, Topic, Details, HttpContext.RequestAborted);
+        }
+
         FlashMessage = result.Message;
         return RedirectToPage();
     }
@@ -49,5 +56,11 @@ public sealed class SupportModel(IAdminDataService adminService) : PageModel
         var result = adminService.UpdateSupportTicketStatus(id, status);
         FlashMessage = result.Message;
         return RedirectToPage();
+    }
+
+    private static long ExtractTicketId(string message)
+    {
+        var m = Regex.Match(message ?? string.Empty, @"#(\d+)");
+        return m.Success && long.TryParse(m.Groups[1].Value, out var id) ? id : 0;
     }
 }

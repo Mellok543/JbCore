@@ -29,8 +29,10 @@ builder.Services
 
 builder.Services.Configure<ExcelSyncOptions>(builder.Configuration.GetSection(ExcelSyncOptions.SectionName));
 builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.SectionName));
+builder.Services.Configure<TelegramNotificationsOptions>(builder.Configuration.GetSection(TelegramNotificationsOptions.SectionName));
 builder.Services.AddScoped<IAdminDataService, ExcelAdminDataService>();
 builder.Services.AddSingleton<IAuthService, ExcelAuthService>();
+builder.Services.AddHttpClient<ITelegramNotifier, TelegramNotifier>();
 
 var app = builder.Build();
 

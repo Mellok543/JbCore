@@ -68,6 +68,7 @@
 
 <section class="card">
     <h2>Пользователи и права</h2>
+    <p class="muted">Таблица прав: /opt/repairbot/tables/access_users.xlsx</p>
 
     @if (Model.Users.Count == 0)
     {
@@ -98,15 +99,30 @@
                         @user.UserId
                         <form id="@formId" method="post" asp-page-handler="SaveUser">
                             <input type="hidden" name="userId" value="@user.UserId" />
+                            <input type="hidden" name="canUseBot" value="false" />
+                            <input type="hidden" name="canComplete" value="false" />
+                            <input type="hidden" name="canManageAccess" value="false" />
+                            <input type="hidden" name="notifyRequests" value="false" />
+                            <input type="hidden" name="notifyRecommendations" value="false" />
                         </form>
                     </td>
                     <td>@(string.IsNullOrWhiteSpace(user.Username) ? "-" : user.Username)</td>
                     <td>@(string.IsNullOrWhiteSpace(user.DisplayName) ? "-" : user.DisplayName)</td>
-                    <td><input type="checkbox" name="canUseBot" form="@formId" checked="@user.CanUseBot" disabled="@(!Model.IsAdmin)" /></td>
-                    <td><input type="checkbox" name="canComplete" form="@formId" checked="@user.CanComplete" disabled="@(!Model.IsAdmin)" /></td>
-                    <td><input type="checkbox" name="canManageAccess" form="@formId" checked="@user.CanManageAccess" disabled="@(!Model.IsAdmin)" /></td>
-                    <td><input type="checkbox" name="notifyRequests" form="@formId" checked="@user.NotifyRequests" disabled="@(!Model.IsAdmin)" /></td>
-                    <td><input type="checkbox" name="notifyRecommendations" form="@formId" checked="@user.NotifyRecommendations" disabled="@(!Model.IsAdmin)" /></td>
+                    <td>
+                        <input type="checkbox" name="canUseBot" value="true" form="@formId" checked="@user.CanUseBot" @(Model.IsAdmin ? null : "disabled") />
+                    </td>
+                    <td>
+                        <input type="checkbox" name="canComplete" value="true" form="@formId" checked="@user.CanComplete" @(Model.IsAdmin ? null : "disabled") />
+                    </td>
+                    <td>
+                        <input type="checkbox" name="canManageAccess" value="true" form="@formId" checked="@user.CanManageAccess" @(Model.IsAdmin ? null : "disabled") />
+                    </td>
+                    <td>
+                        <input type="checkbox" name="notifyRequests" value="true" form="@formId" checked="@user.NotifyRequests" @(Model.IsAdmin ? null : "disabled") />
+                    </td>
+                    <td>
+                        <input type="checkbox" name="notifyRecommendations" value="true" form="@formId" checked="@user.NotifyRecommendations" @(Model.IsAdmin ? null : "disabled") />
+                    </td>
                     <td>@if (Model.IsAdmin) { <button type="submit" form="@formId">Сохранить</button> } else { <span class="muted">—</span> }</td>
                 </tr>
             }
