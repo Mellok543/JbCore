@@ -1,22 +1,10 @@
-using Npgsql;
-using Microsoft.EntityFrameworkCore;
-using WebPanel.Data;
 using WebPanel.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
-
-var connectionString = builder.Configuration.GetConnectionString("Postgres");
-if (string.IsNullOrWhiteSpace(connectionString))
-{
-    throw new InvalidOperationException("ConnectionStrings:Postgres is not configured.");
-}
-
 builder.Services.Configure<ExcelSyncOptions>(builder.Configuration.GetSection(ExcelSyncOptions.SectionName));
-builder.Services.AddDbContext<AdminDbContext>(options => options.UseNpgsql(connectionString));
-builder.Services.AddScoped<IAdminDataService, DbAdminDataService>();
-builder.Services.AddScoped<ExcelToPostgresSyncService>();
+builder.Services.AddScoped<IAdminDataService, ExcelAdminDataService>();
 
 var app = builder.Build();
 
@@ -24,83 +12,6 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
     app.UseHsts();
-}
-
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AdminDbContext>();
-
-    try
-    {
-        db.Database.EnsureCreated();
-        db.Database.ExecuteSqlRaw("""ALTER TABLE IF EXISTS requests ADD COLUMN IF NOT EXISTS "ExternalId" bigint""");
-        db.Database.ExecuteSqlRaw("""
-            DO $$
-            BEGIN
-                IF EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_schema = 'public' AND table_name = 'requests' AND column_name = 'Category'
-                ) AND EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_schema = 'public' AND table_name = 'requests' AND column_name = 'Status'
-                ) THEN
-                    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_requests_category_status ON requests ("Category", "Status")';
-                ELSIF EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_schema = 'public' AND table_name = 'requests' AND column_name = 'category'
-                ) AND EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_schema = 'public' AND table_name = 'requests' AND column_name = 'status'
-                ) THEN
-                    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_requests_category_status ON requests (category, status)';
-                END IF;
-            END $$;
-            """);
-    }
-    catch (PostgresException ex) when (ex.SqlState == "28P01")
-    {
-        throw new InvalidOperationException(
-            "Не удалось подключиться к PostgreSQL: ошибка авторизации пользователя/пароля (28P01). " +
-            "Проверьте ConnectionStrings:Postgres или env ConnectionStrings__Postgres, затем перезапустите WebPanel.", ex);
-    }
-    catch (PostgresException ex) when (ex.SqlState == "42703")
-    {
-        throw new InvalidOperationException(
-            "Ошибка схемы БД (42703): отсутствуют ожидаемые колонки в таблице requests. " +
-            "Проверьте структуру таблицы requests или пересоздайте схему для WebPanel.", ex);
-    }
-    catch (NpgsqlException ex)
-    {
-        throw new InvalidOperationException(
-            "Не удалось подключиться к PostgreSQL. Проверьте, что сервер доступен и строка подключения корректна.", ex);
-    }
-}
-
-var runSyncOnStartup = builder.Configuration.GetValue<bool>("ExcelSync:RunOnStartup");
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AdminDbContext>();
-    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("StartupSync");
-
-    var dbLooksEmpty = !db.Requests.AsNoTracking().Any() && !db.Users.AsNoTracking().Any() && !db.Recommendations.AsNoTracking().Any();
-    var shouldSync = runSyncOnStartup || dbLooksEmpty;
-
-    if (!shouldSync)
-    {
-        logger.LogInformation("Excel sync skipped on startup. RunOnStartup={RunOnStartup}, DbLooksEmpty={DbLooksEmpty}", runSyncOnStartup, dbLooksEmpty);
-    }
-    else
-    {
-        var sync = scope.ServiceProvider.GetRequiredService<ExcelToPostgresSyncService>();
-        var report = sync.Sync();
-        logger.LogInformation(
-            "Excel -> PostgreSQL sync completed. Active={Active}, Completed={Completed}, Users={Users}, Recommendations={Recommendations}, Details={Details}",
-            report.ActiveImported,
-            report.CompletedImported,
-            report.UsersImported,
-            report.RecommendationsImported,
-            string.Join(" | ", report.Details.Select(d => $"{d.Entity}:{d.ImportedRows} ({d.SourcePath}){(string.IsNullOrWhiteSpace(d.SkipReason) ? string.Empty : $" skipped={d.SkipReason}")}")));
-    }
 }
 
 app.UseHttpsRedirection();
@@ -111,20 +22,25 @@ app.MapGet("/api/health", () => Results.Ok(new
 {
     status = "ok",
     service = "RepairBot WebPanel",
-    storage = "postgres",
+    storage = "excel",
     utc = DateTime.UtcNow
 }));
 
 app.MapGet("/api/roadmap", () => Results.Ok(new[]
 {
+    "Single source storage: Excel",
     "Dashboard (active/completed requests)",
     "Recommendations moderation",
-    "Access/roles management",
-    "FAQ and support tickets"
+    "Access/roles management"
 }));
 
 app.MapGet("/api/dashboard", (IAdminDataService service) => Results.Ok(service.GetDashboard()));
-app.MapPost("/api/sync/excel-to-db", (ExcelToPostgresSyncService sync) => Results.Ok(sync.Sync()));
+app.MapPost("/api/sync/excel-to-db", () => Results.Ok(new
+{
+    ok = true,
+    mode = "excel-only",
+    message = "WebPanel работает напрямую с Excel, отдельная синхронизация в БД не требуется."
+}));
 
 app.MapRazorPages();
 
