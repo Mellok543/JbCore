@@ -113,6 +113,94 @@ public sealed class ExcelAdminDataService(IOptions<ExcelSyncOptions> options) : 
     }
 
 
+
+    public ReviewResultVm UpdateRequestStatus(string category, long requestId, bool completed)
+    {
+        lock (_sync)
+        {
+            var normalized = category switch
+            {
+                "repair" => "repair",
+                "consumables" => "consumables",
+                _ => "drone"
+            };
+
+            var (path, sheetName, statusColumn) = normalized switch
+            {
+                "repair" => (Path.Combine(GetTablesDir(), _options.RepairsFileName), "Repairs", 9),
+                "consumables" => (Path.Combine(GetTablesDir(), _options.ConsumablesFileName), "Consumables", 8),
+                _ => (Path.Combine(GetTablesDir(), _options.ApplicationsFileName), "Applications", 17)
+            };
+
+            if (!File.Exists(path))
+            {
+                return new ReviewResultVm(false, "Файл с заявками не найден.");
+            }
+
+            using var wb = new XLWorkbook(path);
+            if (!wb.TryGetWorksheet(sheetName, out var ws))
+            {
+                return new ReviewResultVm(false, $"Лист {sheetName} не найден.");
+            }
+
+            var last = ws.LastRowUsed()?.RowNumber() ?? 1;
+            for (var r = 2; r <= last; r++)
+            {
+                if (!long.TryParse(ws.Cell(r, 1).GetString(), out var id) || id != requestId)
+                {
+                    continue;
+                }
+
+                ws.Cell(r, statusColumn).Value = normalized == "drone"
+                    ? (completed ? "completed" : "active")
+                    : (completed ? "Завершено" : "В работе");
+
+                wb.SaveAs(path);
+                return new ReviewResultVm(true, completed ? "Заявка завершена." : "Заявка возвращена в активные.");
+            }
+
+            return new ReviewResultVm(false, "Заявка не найдена.");
+        }
+    }
+
+    public ReviewResultVm UpdateUserAccess(long userId, bool canUseBot, bool canComplete, bool canManageAccess, bool notifyRequests, bool notifyRecommendations)
+    {
+        lock (_sync)
+        {
+            var path = Path.Combine(GetTablesDir(), _options.AccessFileName);
+            if (!File.Exists(path))
+            {
+                return new ReviewResultVm(false, "Файл access_users.xlsx не найден.");
+            }
+
+            using var wb = new XLWorkbook(path);
+            if (!wb.TryGetWorksheet("Users", out var ws))
+            {
+                return new ReviewResultVm(false, "Лист Users не найден.");
+            }
+
+            var last = ws.LastRowUsed()?.RowNumber() ?? 1;
+            for (var r = 2; r <= last; r++)
+            {
+                if (!long.TryParse(ws.Cell(r, 1).GetString(), out var id) || id != userId)
+                {
+                    continue;
+                }
+
+                ws.Cell(r, 3).Value = canUseBot ? "1" : "0";
+                ws.Cell(r, 4).Value = canComplete ? "1" : "0";
+                ws.Cell(r, 5).Value = canManageAccess ? "1" : "0";
+                ws.Cell(r, 6).Value = notifyRequests ? "1" : "0";
+                ws.Cell(r, 7).Value = notifyRecommendations ? "1" : "0";
+
+                wb.SaveAs(path);
+                return new ReviewResultVm(true, "Права пользователя обновлены.");
+            }
+
+            return new ReviewResultVm(false, "Пользователь не найден.");
+        }
+    }
+
     public IReadOnlyList<SupportTicketVm> GetSupportTickets(int take = 50)
     {
         lock (_sync)
@@ -176,6 +264,47 @@ public sealed class ExcelAdminDataService(IOptions<ExcelSyncOptions> options) : 
 
             wb.SaveAs(path);
             return new ReviewResultVm(true, $"Обращение #{nextId} создано.");
+        }
+    }
+
+
+    public ReviewResultVm UpdateSupportTicketStatus(long ticketId, string status)
+    {
+        var normalized = status switch
+        {
+            "in_progress" => "in_progress",
+            "closed" => "closed",
+            _ => "open"
+        };
+
+        lock (_sync)
+        {
+            var path = Path.Combine(GetTablesDir(), _options.SupportFileName);
+            if (!File.Exists(path))
+            {
+                return new ReviewResultVm(false, "Файл support.xlsx не найден.");
+            }
+
+            using var wb = new XLWorkbook(path);
+            if (!wb.TryGetWorksheet("Support", out var ws))
+            {
+                return new ReviewResultVm(false, "Лист Support не найден.");
+            }
+
+            var last = ws.LastRowUsed()?.RowNumber() ?? 1;
+            for (var r = 2; r <= last; r++)
+            {
+                if (!long.TryParse(ws.Cell(r, 1).GetString(), out var id) || id != ticketId)
+                {
+                    continue;
+                }
+
+                ws.Cell(r, 6).Value = normalized;
+                wb.SaveAs(path);
+                return new ReviewResultVm(true, "Статус обращения обновлен.");
+            }
+
+            return new ReviewResultVm(false, "Обращение не найдено.");
         }
     }
 

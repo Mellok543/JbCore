@@ -15,6 +15,9 @@ public sealed class RequestsModel(IAdminDataService adminService) : PageModel
     [BindProperty(SupportsGet = true)]
     public string Query { get; set; } = string.Empty;
 
+    [TempData]
+    public string FlashMessage { get; set; } = string.Empty;
+
     public IReadOnlyList<RequestVm> Requests { get; private set; } = [];
 
     public void OnGet()
@@ -37,6 +40,21 @@ public sealed class RequestsModel(IAdminDataService adminService) : PageModel
                 x.Description.Contains(q, StringComparison.OrdinalIgnoreCase) ||
                 x.Note.Contains(q, StringComparison.OrdinalIgnoreCase))
             .ToList();
+    }
+
+    public IActionResult OnPostToggleStatus(long id, string category, string status, string query)
+    {
+        var normalizedCategory = NormalizeCategory(category);
+        var completed = !string.Equals(status, "completed", StringComparison.OrdinalIgnoreCase);
+        var result = adminService.UpdateRequestStatus(normalizedCategory, id, completed);
+        FlashMessage = result.Message;
+
+        return RedirectToPage(new
+        {
+            Category = normalizedCategory,
+            Status = status == "completed" ? "completed" : "active",
+            Query = query ?? string.Empty
+        });
     }
 
     public static string NormalizeCategory(string category)

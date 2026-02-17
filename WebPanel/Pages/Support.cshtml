@@ -47,6 +47,7 @@
                 <th>Тема</th>
                 <th>Описание</th>
                 <th>Статус</th>
+                <th></th>
             </tr>
             </thead>
             <tbody>
@@ -58,7 +59,18 @@
                     <td>@ticket.Author</td>
                     <td>@ticket.Topic</td>
                     <td>@ticket.Details</td>
-                    <td><span class="tag tag-open">@ticket.Status</span></td>
+                    <td><span class="tag @(ticket.Status == "closed" ? "tag-done" : "tag-open")">@ticket.Status</span></td>
+                    <td>
+                        <form method="post" asp-page-handler="SetStatus" class="action-inline">
+                            <input type="hidden" name="id" value="@ticket.Id" />
+                            <select name="status">
+                                <option value="open" selected="@(ticket.Status == "open" ? "selected" : null)">open</option>
+                                <option value="in_progress" selected="@(ticket.Status == "in_progress" ? "selected" : null)">in_progress</option>
+                                <option value="closed" selected="@(ticket.Status == "closed" ? "selected" : null)">closed</option>
+                            </select>
+                            <button type="submit">Обновить</button>
+                        </form>
+                    </td>
                 </tr>
             }
             </tbody>

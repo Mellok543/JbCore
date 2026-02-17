@@ -7,6 +7,9 @@ public interface IAdminDataService
     IReadOnlyList<UserAccessVm> GetUsers();
     IReadOnlyList<RecommendationVm> GetPendingRecommendations();
     ReviewResultVm ReviewRecommendation(long recommendationId, bool accept, string reviewer);
+    ReviewResultVm UpdateRequestStatus(string category, long requestId, bool completed);
+    ReviewResultVm UpdateUserAccess(long userId, bool canUseBot, bool canComplete, bool canManageAccess, bool notifyRequests, bool notifyRecommendations);
     IReadOnlyList<SupportTicketVm> GetSupportTickets(int take = 50);
     ReviewResultVm AddSupportTicket(string author, string topic, string details);
+    ReviewResultVm UpdateSupportTicketStatus(long ticketId, string status);
 }

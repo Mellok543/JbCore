@@ -6,6 +6,11 @@
 
 <h1>Заявки</h1>
 
+@if (!string.IsNullOrWhiteSpace(Model.FlashMessage))
+{
+    <p class="flash">@Model.FlashMessage</p>
+}
+
 <form method="get" class="filters card">
     <label>
         Категория
@@ -53,6 +58,7 @@
                     <th>Описание</th>
                     <th>Примечание</th>
                     <th>Статус</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
@@ -66,6 +72,15 @@
                         <td>@request.Description</td>
                         <td>@request.Note</td>
                         <td><span class="tag @(request.Status == "completed" ? "tag-done" : "tag-open")">@request.Status</span></td>
+                        <td>
+                            <form method="post" asp-page-handler="ToggleStatus" class="action-inline">
+                                <input type="hidden" name="id" value="@request.Id" />
+                                <input type="hidden" name="category" value="@Model.Category" />
+                                <input type="hidden" name="status" value="@Model.Status" />
+                                <input type="hidden" name="query" value="@Model.Query" />
+                                <button type="submit">@(request.Status == "completed" ? "Вернуть в активные" : "Завершить")</button>
+                            </form>
+                        </td>
                     </tr>
                 }
             </tbody>

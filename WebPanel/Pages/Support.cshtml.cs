@@ -34,4 +34,11 @@ public sealed class SupportModel(IAdminDataService adminService) : PageModel
         FlashMessage = result.Message;
         return RedirectToPage();
     }
+
+    public IActionResult OnPostSetStatus(long id, string status)
+    {
+        var result = adminService.UpdateSupportTicketStatus(id, status);
+        FlashMessage = result.Message;
+        return RedirectToPage();
+    }
 }

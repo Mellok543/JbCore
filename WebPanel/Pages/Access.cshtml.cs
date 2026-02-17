@@ -32,6 +32,13 @@ public sealed class AccessModel(IAdminDataService adminService) : PageModel
         return RedirectToPage();
     }
 
+    public IActionResult OnPostSaveUser(long userId, bool canUseBot, bool canComplete, bool canManageAccess, bool notifyRequests, bool notifyRecommendations)
+    {
+        var result = adminService.UpdateUserAccess(userId, canUseBot, canComplete, canManageAccess, notifyRequests, notifyRecommendations);
+        FlashMessage = result.Message;
+        return RedirectToPage();
+    }
+
     private void LoadData()
     {
         Users = adminService.GetUsers();

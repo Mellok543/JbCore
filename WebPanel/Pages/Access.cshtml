@@ -74,20 +74,28 @@
                 <th>Управление доступом</th>
                 <th>Уведомления заявок</th>
                 <th>Уведомления рекомендаций</th>
+                <th></th>
             </tr>
             </thead>
             <tbody>
             @foreach (var user in Model.Users)
             {
+                var formId = $"user-form-{user.UserId}";
                 <tr>
-                    <td>@user.UserId</td>
+                    <td>
+                        @user.UserId
+                        <form id="@formId" method="post" asp-page-handler="SaveUser">
+                            <input type="hidden" name="userId" value="@user.UserId" />
+                        </form>
+                    </td>
                     <td>@(string.IsNullOrWhiteSpace(user.Username) ? "-" : user.Username)</td>
                     <td>@(string.IsNullOrWhiteSpace(user.DisplayName) ? "-" : user.DisplayName)</td>
-                    <td>@(user.CanUseBot ? "Да" : "Нет")</td>
-                    <td>@(user.CanComplete ? "Да" : "Нет")</td>
-                    <td>@(user.CanManageAccess ? "Да" : "Нет")</td>
-                    <td>@(user.NotifyRequests ? "Да" : "Нет")</td>
-                    <td>@(user.NotifyRecommendations ? "Да" : "Нет")</td>
+                    <td><input type="checkbox" name="canUseBot" form="@formId" checked="@user.CanUseBot" /></td>
+                    <td><input type="checkbox" name="canComplete" form="@formId" checked="@user.CanComplete" /></td>
+                    <td><input type="checkbox" name="canManageAccess" form="@formId" checked="@user.CanManageAccess" /></td>
+                    <td><input type="checkbox" name="notifyRequests" form="@formId" checked="@user.NotifyRequests" /></td>
+                    <td><input type="checkbox" name="notifyRecommendations" form="@formId" checked="@user.NotifyRecommendations" /></td>
+                    <td><button type="submit" form="@formId">Сохранить</button></td>
                 </tr>
             }
             </tbody>
