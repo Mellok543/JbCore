@@ -76,13 +76,31 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-if (builder.Configuration.GetValue<bool>("ExcelSync:RunOnStartup"))
+var runSyncOnStartup = builder.Configuration.GetValue<bool>("ExcelSync:RunOnStartup");
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
-    var sync = scope.ServiceProvider.GetRequiredService<ExcelToPostgresSyncService>();
+    var db = scope.ServiceProvider.GetRequiredService<AdminDbContext>();
     var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("StartupSync");
-    var report = sync.Sync();
-    logger.LogInformation("Excel -> PostgreSQL sync completed: {Report}", report);
+
+    var dbLooksEmpty = !db.Requests.AsNoTracking().Any() && !db.Users.AsNoTracking().Any() && !db.Recommendations.AsNoTracking().Any();
+    var shouldSync = runSyncOnStartup || dbLooksEmpty;
+
+    if (!shouldSync)
+    {
+        logger.LogInformation("Excel sync skipped on startup. RunOnStartup={RunOnStartup}, DbLooksEmpty={DbLooksEmpty}", runSyncOnStartup, dbLooksEmpty);
+    }
+    else
+    {
+        var sync = scope.ServiceProvider.GetRequiredService<ExcelToPostgresSyncService>();
+        var report = sync.Sync();
+        logger.LogInformation(
+            "Excel -> PostgreSQL sync completed. Active={Active}, Completed={Completed}, Users={Users}, Recommendations={Recommendations}, Details={Details}",
+            report.ActiveImported,
+            report.CompletedImported,
+            report.UsersImported,
+            report.RecommendationsImported,
+            string.Join(" | ", report.Details.Select(d => $"{d.Entity}:{d.ImportedRows} ({d.SourcePath}){(string.IsNullOrWhiteSpace(d.SkipReason) ? string.Empty : $" skipped={d.SkipReason}")}")));
+    }
 }
 
 app.UseHttpsRedirection();
