@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using WebPanel.Services;
 
+SanitizeJsonStringTabs("appsettings.json");
+SanitizeJsonStringTabs($"appsettings.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")}.json");
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
@@ -78,3 +81,70 @@ app.MapPost("/api/sync/excel-to-db", () => Results.Ok(new
 app.MapRazorPages();
 
 app.Run();
+
+static void SanitizeJsonStringTabs(string? path)
+{
+    if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+    {
+        return;
+    }
+
+    var text = File.ReadAllText(path);
+    if (!text.Contains('\t'))
+    {
+        return;
+    }
+
+    var result = new System.Text.StringBuilder(text.Length + 16);
+    var inString = false;
+    var escaped = false;
+    var changed = false;
+
+    foreach (var ch in text)
+    {
+        if (inString)
+        {
+            if (escaped)
+            {
+                result.Append(ch);
+                escaped = false;
+                continue;
+            }
+
+            if (ch == '\\')
+            {
+                result.Append(ch);
+                escaped = true;
+                continue;
+            }
+
+            if (ch == '"')
+            {
+                result.Append(ch);
+                inString = false;
+                continue;
+            }
+
+            if (ch == '\t')
+            {
+                result.Append("\\t");
+                changed = true;
+                continue;
+            }
+
+            result.Append(ch);
+            continue;
+        }
+
+        result.Append(ch);
+        if (ch == '"')
+        {
+            inString = true;
+        }
+    }
+
+    if (changed)
+    {
+        File.WriteAllText(path, result.ToString());
+    }
+}
