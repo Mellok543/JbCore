@@ -26,10 +26,6 @@ public sealed class SupportModel(IAdminDataService adminService, ITelegramNotifi
 
     public async Task<IActionResult> OnPostCreate()
     {
-        if (!User.IsInRole("admin"))
-        {
-            return Forbid();
-        }
         var author = User?.Identity?.Name;
         if (string.IsNullOrWhiteSpace(author))
         {

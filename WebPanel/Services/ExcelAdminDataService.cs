@@ -26,6 +26,32 @@ public sealed class ExcelAdminDataService(IOptions<ExcelSyncOptions> options) : 
     public IReadOnlyList<RequestVm> GetRequests(string category, string status)
         => ReadRequests(category, status);
 
+
+    public ReviewResultVm CreateRequest(string category, string reporter, string unit, string description, string quantity, string note)
+    {
+        if (string.IsNullOrWhiteSpace(reporter) || string.IsNullOrWhiteSpace(unit) || string.IsNullOrWhiteSpace(description))
+        {
+            return new ReviewResultVm(false, "Заполните обязательные поля: кто передал, подразделение, описание.");
+        }
+
+        lock (_sync)
+        {
+            var normalized = category switch
+            {
+                "repair" => "repair",
+                "consumables" => "consumables",
+                _ => "drone"
+            };
+
+            return normalized switch
+            {
+                "repair" => CreateRepairRequest(reporter, unit, description, quantity, note),
+                "consumables" => CreateConsumablesRequest(reporter, unit, description, quantity, note),
+                _ => CreateDroneRequest(reporter, unit, description, quantity, note)
+            };
+        }
+    }
+
     public IReadOnlyList<UserAccessVm> GetUsers()
     {
         lock (_sync)
@@ -456,6 +482,87 @@ public sealed class ExcelAdminDataService(IOptions<ExcelSyncOptions> options) : 
         }
 
         return result.OrderByDescending(x => x.Id).ToList();
+    }
+
+
+    private ReviewResultVm CreateDroneRequest(string reporter, string unit, string description, string quantity, string note)
+    {
+        var path = Path.Combine(GetTablesDir(), _options.ApplicationsFileName);
+        EnsureDirectory(path);
+        using var wb = File.Exists(path) ? new XLWorkbook(path) : new XLWorkbook();
+        var ws = wb.TryGetWorksheet("Applications", out var sheet) ? sheet : wb.Worksheets.Add("Applications");
+
+        var row = ws.LastRowUsed()?.RowNumber() + 1 ?? 2;
+        ws.Cell(row, 1).Value = NextNumericId(ws);
+        ws.Cell(row, 2).Value = reporter.Trim();
+        ws.Cell(row, 3).Value = DateTime.Now.ToString("s");
+        ws.Cell(row, 5).Value = "-";
+        ws.Cell(row, 6).Value = unit.Trim();
+        ws.Cell(row, 8).Value = description.Trim();
+        ws.Cell(row, 15).Value = string.IsNullOrWhiteSpace(quantity) ? "1" : quantity.Trim();
+        ws.Cell(row, 16).Value = note?.Trim() ?? string.Empty;
+        ws.Cell(row, 17).Value = "active";
+
+        wb.SaveAs(path);
+        return new ReviewResultVm(true, "Заявка на дроны добавлена.");
+    }
+
+    private ReviewResultVm CreateRepairRequest(string reporter, string unit, string description, string quantity, string note)
+    {
+        var path = Path.Combine(GetTablesDir(), _options.RepairsFileName);
+        EnsureDirectory(path);
+        using var wb = File.Exists(path) ? new XLWorkbook(path) : new XLWorkbook();
+        var ws = wb.TryGetWorksheet("Repairs", out var sheet) ? sheet : wb.Worksheets.Add("Repairs");
+
+        var row = ws.LastRowUsed()?.RowNumber() + 1 ?? 2;
+        ws.Cell(row, 1).Value = NextNumericId(ws);
+        ws.Cell(row, 2).Value = reporter.Trim();
+        ws.Cell(row, 3).Value = DateTime.Now.ToString("s");
+        ws.Cell(row, 4).Value = unit.Trim();
+        ws.Cell(row, 5).Value = description.Trim();
+        ws.Cell(row, 6).Value = "создано из web";
+        ws.Cell(row, 7).Value = string.IsNullOrWhiteSpace(quantity) ? "1" : quantity.Trim();
+        ws.Cell(row, 8).Value = note?.Trim() ?? string.Empty;
+        ws.Cell(row, 9).Value = "В работе";
+
+        wb.SaveAs(path);
+        return new ReviewResultVm(true, "Заявка на ремонт добавлена.");
+    }
+
+    private ReviewResultVm CreateConsumablesRequest(string reporter, string unit, string description, string quantity, string note)
+    {
+        var path = Path.Combine(GetTablesDir(), _options.ConsumablesFileName);
+        EnsureDirectory(path);
+        using var wb = File.Exists(path) ? new XLWorkbook(path) : new XLWorkbook();
+        var ws = wb.TryGetWorksheet("Consumables", out var sheet) ? sheet : wb.Worksheets.Add("Consumables");
+
+        var row = ws.LastRowUsed()?.RowNumber() + 1 ?? 2;
+        ws.Cell(row, 1).Value = NextNumericId(ws);
+        ws.Cell(row, 2).Value = DateTime.Now.ToString("s");
+        ws.Cell(row, 3).Value = reporter.Trim();
+        ws.Cell(row, 4).Value = unit.Trim();
+        ws.Cell(row, 5).Value = description.Trim();
+        ws.Cell(row, 6).Value = string.IsNullOrWhiteSpace(quantity) ? "1" : quantity.Trim();
+        ws.Cell(row, 7).Value = note?.Trim() ?? string.Empty;
+        ws.Cell(row, 8).Value = "В работе";
+
+        wb.SaveAs(path);
+        return new ReviewResultVm(true, "Заявка на комплектующие добавлена.");
+    }
+
+    private static long NextNumericId(IXLWorksheet ws)
+    {
+        var last = ws.LastRowUsed()?.RowNumber() ?? 1;
+        long max = 0;
+        for (var r = 2; r <= last; r++)
+        {
+            if (long.TryParse(ws.Cell(r, 1).GetString(), out var id) && id > max)
+            {
+                max = id;
+            }
+        }
+
+        return max + 1;
     }
 
     private static string NormalizeAppStatus(string status)

@@ -15,6 +15,35 @@
     <p class="flash">@Model.FlashMessage</p>
 }
 
+<section class="card">
+    <h2>Создать новую заявку</h2>
+    <p class="muted">Заявка сразу записывается в Excel, откуда ее читает бот и сайт.</p>
+    <form method="post" asp-page-handler="CreateRequest" class="support-form">
+        <input type="hidden" name="category" value="@Model.Category" />
+        <label>
+            Кто передал
+            <input asp-for="NewReporter" placeholder="ФИО/позывной" />
+        </label>
+        <label>
+            Подразделение
+            <input asp-for="NewUnit" placeholder="Например: 3 рота" />
+        </label>
+        <label>
+            Описание
+            <textarea asp-for="NewDescription" rows="3" placeholder="Что требуется"></textarea>
+        </label>
+        <label>
+            Количество
+            <input asp-for="NewQuantity" placeholder="1" />
+        </label>
+        <label>
+            Примечание
+            <input asp-for="NewNote" placeholder="Комментарий" />
+        </label>
+        <button type="submit">Создать заявку</button>
+    </form>
+</section>
+
 <form method="get" class="filters card">
     <label>
         Категория

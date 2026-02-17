@@ -7,6 +7,7 @@ namespace WebPanel.Pages;
 public sealed class RequestsModel(IAdminDataService adminService) : PageModel
 {
     public bool IsAdmin => User.IsInRole("admin");
+
     [BindProperty(SupportsGet = true)]
     public string Category { get; set; } = "drone";
 
@@ -15,6 +16,21 @@ public sealed class RequestsModel(IAdminDataService adminService) : PageModel
 
     [BindProperty(SupportsGet = true)]
     public string Query { get; set; } = string.Empty;
+
+    [BindProperty]
+    public string NewReporter { get; set; } = string.Empty;
+
+    [BindProperty]
+    public string NewUnit { get; set; } = string.Empty;
+
+    [BindProperty]
+    public string NewDescription { get; set; } = string.Empty;
+
+    [BindProperty]
+    public string NewQuantity { get; set; } = string.Empty;
+
+    [BindProperty]
+    public string NewNote { get; set; } = string.Empty;
 
     [TempData]
     public string FlashMessage { get; set; } = string.Empty;
@@ -41,6 +57,14 @@ public sealed class RequestsModel(IAdminDataService adminService) : PageModel
                 x.Description.Contains(q, StringComparison.OrdinalIgnoreCase) ||
                 x.Note.Contains(q, StringComparison.OrdinalIgnoreCase))
             .ToList();
+    }
+
+    public IActionResult OnPostCreateRequest(string category)
+    {
+        var normalizedCategory = NormalizeCategory(category);
+        var result = adminService.CreateRequest(normalizedCategory, NewReporter, NewUnit, NewDescription, NewQuantity, NewNote);
+        FlashMessage = result.Message;
+        return RedirectToPage(new { Category = normalizedCategory, Status = "active" });
     }
 
     public IActionResult OnPostToggleStatus(long id, string category, string status, string query)

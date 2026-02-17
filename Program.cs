@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using ClosedXML.Excel;
 
-var settings = AppSettings.Default;
+var settings = AppSettings.FromEnvironment();
 var botToken = Environment.GetEnvironmentVariable("BOT_TOKEN");
 if (string.IsNullOrWhiteSpace(botToken))
 {
@@ -42,7 +42,7 @@ sealed record AppSettings(
     HashSet<long> RecommendationNotificationUserIds)
 {
     public static AppSettings Default => new(
-        TablesDirectory: "data",
+        TablesDirectory: "/opt/repairbot/tables",
         ExcelPath: "applications.xlsx",
         RepairExcelPath: "repairs.xlsx",
         ConsumablesExcelPath: "consumables.xlsx",
@@ -53,6 +53,16 @@ sealed record AppSettings(
         NotificationUserIds: [992964625],
         RecommendationNotificationUserIds: [992964625]
     );
+
+    public static AppSettings FromEnvironment()
+    {
+        var d = Default;
+        var tablesDir = Environment.GetEnvironmentVariable("TABLES_DIR");
+        return d with
+        {
+            TablesDirectory = string.IsNullOrWhiteSpace(tablesDir) ? d.TablesDirectory : tablesDir.Trim()
+        };
+    }
 }
 
 sealed class BotApp
@@ -169,8 +179,9 @@ sealed class BotApp
                         _allowedUserIds.Add(userId);
                     }
 
-                    var canManageAccess = _accessAdminIds.Contains(userId);
-                    var hasAccess = canManageAccess || _allowedUserIds.Contains(userId) || _accessStore.HasUsernameAccess(message.From.Username);
+                    var currentAccess = _accessStore.GetUsers().FirstOrDefault(x => x.UserId == userId);
+                    var hasAccess = (currentAccess?.CanUseBot ?? false) || _accessStore.HasUsernameAccess(message.From.Username);
+                    var canManageAccess = currentAccess?.CanManageAccess ?? false;
 
                     if (!hasAccess)
                     {
@@ -179,7 +190,7 @@ sealed class BotApp
                         continue;
                     }
 
-                    var canComplete = _closerIds.Contains(userId);
+                    var canComplete = currentAccess?.CanComplete ?? false;
                     var mainMenu = Keyboards.MainMenu(canComplete, canManageAccess, true);
 
                     if (_accessStore.ConsumeWelcome(userId))

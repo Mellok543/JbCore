@@ -7,7 +7,7 @@
 <h1>Техподдержка</h1>
 @if (!Model.IsAdmin)
 {
-    <p class="muted">Режим просмотра: создавать и менять статусы обращений может только администратор.</p>
+    <p class="muted">Оператор может создавать обращения. Менять статусы может только администратор.</p>
 }
 <p class="muted">Оставьте обращение прямо из WebPanel. Оно сохранится в `support.xlsx`, а при включенной интеграции придет уведомление в Telegram.</p>
 
@@ -21,15 +21,15 @@
     <form method="post" asp-page-handler="Create" class="support-form">
         <label>
             Тема
-            <input type="text" asp-for="Topic" maxlength="120" placeholder="Например: Проблема с отображением заявок" disabled="@(!Model.IsAdmin)" />
+            <input type="text" asp-for="Topic" maxlength="120" placeholder="Например: Проблема с отображением заявок" />
         </label>
 
         <label>
             Описание
-            <textarea asp-for="Details" rows="5" placeholder="Опишите проблему подробнее..." disabled="@(!Model.IsAdmin)"></textarea>
+            <textarea asp-for="Details" rows="5" placeholder="Опишите проблему подробнее..."></textarea>
         </label>
 
-        @if (Model.IsAdmin) { <button type="submit">Создать обращение</button> }
+        <button type="submit">Создать обращение</button>
     </form>
 </section>
 
